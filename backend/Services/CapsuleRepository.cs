@@ -6,6 +6,7 @@ namespace CapsuleApi.Services;
 public sealed class CapsuleRepository
 {
     private readonly string _dataFilePath;
+    private readonly SpatialCryptoService _crypto;
     private readonly object _sync = new();
     private PersistedState _state;
 
@@ -19,8 +20,9 @@ public sealed class CapsuleRepository
         public List<SusTamSubmission> SusSubmissions { get; set; } = new();
     }
 
-    public CapsuleRepository(IWebHostEnvironment env)
+    public CapsuleRepository(IWebHostEnvironment env, SpatialCryptoService crypto)
     {
+        _crypto = crypto;
         var dir = Path.Combine(env.ContentRootPath, "data");
         Directory.CreateDirectory(dir);
         _dataFilePath = Path.Combine(dir, "state.json");
@@ -126,9 +128,21 @@ public sealed class CapsuleRepository
     {
         lock (_sync)
         {
+            var id = Guid.NewGuid().ToString("N")[..10];
+            var visualSig = string.IsNullOrWhiteSpace(req.VisualSignature) ? "a4c8e2f09b7531d6" : req.VisualSignature;
+            var plainNote = req.NoteText ?? req.Description;
+            var sealedData = _crypto.EncryptSpatialPayload(
+                plainNote,
+                id,
+                req.Latitude,
+                req.Longitude,
+                req.AnchorHeadingDeg,
+                visualSig
+            );
+
             var capsule = new Capsule
             {
-                Id = Guid.NewGuid().ToString("N")[..10],
+                Id = id,
                 Title = req.Title.Trim(),
                 Description = req.Description.Trim(),
                 Category = string.IsNullOrWhiteSpace(req.Category) ? "Kampüs Yaşamı" : req.Category,
@@ -139,11 +153,17 @@ public sealed class CapsuleRepository
                 ArTriggerRadiusMeters = Math.Clamp(req.ArTriggerRadiusMeters, 10.0, 50.0),
                 LocationName = string.IsNullOrWhiteSpace(req.LocationName) ? "Kampüs Noktası" : req.LocationName.Trim(),
                 ImageUrl = req.ImageUrl,
-                NoteText = req.NoteText,
+                NoteText = req.IsEncrypted ? null : plainNote,
                 PixelArtGrid = req.PixelArtGrid,
                 AudioDurationSec = req.AudioDurationSec,
                 AudioWaveform = req.AudioWaveform,
-                VisualSignature = string.IsNullOrWhiteSpace(req.VisualSignature) ? "a4c8e2f09b7531d6" : req.VisualSignature!,
+                VisualSignature = visualSig,
+                AnchorHeadingDeg = req.AnchorHeadingDeg,
+                SpatialSealHash = sealedData.SealHashHex,
+                EncryptedPayload = sealedData.CipherBase64,
+                SealNonce = sealedData.NonceBase64,
+                SealTag = sealedData.TagBase64,
+                ClientSealProof = req.ClientSealProof,
                 IsEncrypted = req.IsEncrypted,
                 PasscodeHint = req.PasscodeHint,
                 CreatedBy = string.IsNullOrWhiteSpace(req.CreatedBy) ? "Gezgin" : req.CreatedBy.Trim(),

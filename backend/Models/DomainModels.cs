@@ -26,6 +26,12 @@ public sealed class Capsule
     public int? AudioDurationSec { get; set; }
     public List<double>? AudioWaveform { get; set; }
     public string VisualSignature { get; set; } = string.Empty;
+    public double AnchorHeadingDeg { get; set; }
+    public string SpatialSealHash { get; set; } = string.Empty;
+    public string? EncryptedPayload { get; set; }
+    public string? SealNonce { get; set; }
+    public string? SealTag { get; set; }
+    public string? ClientSealProof { get; set; }
     public bool IsEncrypted { get; set; }
     public string? PasscodeHint { get; set; }
     public string CreatedBy { get; set; } = "Gezgin";
@@ -51,7 +57,9 @@ public sealed class CreateCapsuleRequest
     public int? AudioDurationSec { get; set; }
     public List<double>? AudioWaveform { get; set; }
     public string? VisualSignature { get; set; }
-    public bool IsEncrypted { get; set; }
+    public double AnchorHeadingDeg { get; set; }
+    public string? ClientSealProof { get; set; }
+    public bool IsEncrypted { get; set; } = true;
     public string? PasscodeHint { get; set; }
     public string CreatedBy { get; set; } = "Kullanıcı";
 }
@@ -106,6 +114,7 @@ public sealed class UnlockAttemptRequest
     public string CapsuleId { get; set; } = string.Empty;
     public List<TelemetrySample> TelemetryWindow { get; set; } = new();
     public string? VisualSignature { get; set; }
+    public double? ObservedHeadingDeg { get; set; }
     public bool BypassVisualInDemo { get; set; }
 }
 
@@ -115,6 +124,8 @@ public sealed class UnlockAttemptResponse
     public bool ArReady { get; set; }
     public double DistanceMeters { get; set; }
     public double VisualMatchScore { get; set; }
+    public double HeadingAlignmentScore { get; set; }
+    public bool SpatialSealVerified { get; set; }
     public AntiSpoofingReport AntiSpoofing { get; set; } = new();
     public string Message { get; set; } = string.Empty;
     public Capsule? Capsule { get; set; }

@@ -27,6 +27,7 @@ class ArUnlockScreen extends StatefulWidget {
 
 class _ArUnlockScreenState extends State<ArUnlockScreen>
     with SingleTickerProviderStateMixin {
+  final ArCameraController _cameraController = ArCameraController();
   late AnimationController _pulseController;
   bool _verifying = false;
   UnlockAttemptResult? _result;
@@ -65,10 +66,19 @@ class _ArUnlockScreenState extends State<ArUnlockScreen>
       await Future.delayed(const Duration(milliseconds: 200));
     }
 
+    final observedVisual = _cameraController.captureVisualSignature(
+      lat: widget.locationService.latitude,
+      lon: widget.locationService.longitude,
+      headingDeg: widget.locationService.headingDeg,
+    );
+
     final res = await widget.api.attemptUnlock(
       capsuleId: widget.capsule.id,
       telemetryWindow: widget.locationService.telemetryWindow,
-      visualSignature: widget.capsule.visualSignature,
+      visualSignature: observedVisual.isNotEmpty
+          ? observedVisual
+          : widget.capsule.visualSignature,
+      observedHeadingDeg: widget.locationService.headingDeg,
       bypassVisualInDemo: true,
     );
 
@@ -127,7 +137,10 @@ class _ArUnlockScreenState extends State<ArUnlockScreen>
       body: Stack(
         children: [
           // Canlı WebRTC Kamera veya AR Referans Görünümü
-          ArCameraBackground(fallbackImageUrl: widget.capsule.imageUrl),
+          ArCameraBackground(
+            controller: _cameraController,
+            fallbackImageUrl: widget.capsule.imageUrl,
+          ),
 
           // Üst Telemetri & Hibrit Doğrulama Şeridi
           Positioned(
@@ -255,9 +268,10 @@ class _ArUnlockScreenState extends State<ArUnlockScreen>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Güven Skoru: %${_result!.antiSpoofing.trustScore.toStringAsFixed(0)} • '
-                          'Kalman Sapma: ${_result!.antiSpoofing.kalmanInnovationMeters.toStringAsFixed(1)} m • '
-                          'Görsel: %${_result!.visualMatchScore.toStringAsFixed(0)}',
+                          'Güven: %${_result!.antiSpoofing.trustScore.toStringAsFixed(0)} • '
+                          'Kalman: ${_result!.antiSpoofing.kalmanInnovationMeters.toStringAsFixed(1)} m • '
+                          'Yön Uyumu: %${_result!.headingAlignmentScore.toStringAsFixed(0)} • '
+                          'Mühür: ${_result!.spatialSealVerified ? "AES-256 Çözüldü" : "Bekliyor"}',
                           style: const TextStyle(color: Colors.white70, fontSize: 11),
                         ),
                         if (_result!.antiSpoofing.layers.isNotEmpty) ...[

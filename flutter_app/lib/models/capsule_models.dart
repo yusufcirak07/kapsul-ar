@@ -15,6 +15,8 @@ class TimeCapsule {
   final int? audioDurationSec;
   final List<double>? audioWaveform;
   final String visualSignature;
+  final double anchorHeadingDeg;
+  final String spatialSealHash;
   final bool isEncrypted;
   final String? passcodeHint;
   final String createdBy;
@@ -42,6 +44,8 @@ class TimeCapsule {
     this.audioDurationSec,
     this.audioWaveform,
     required this.visualSignature,
+    this.anchorHeadingDeg = 0,
+    this.spatialSealHash = '',
     required this.isEncrypted,
     this.passcodeHint,
     required this.createdBy,
@@ -71,6 +75,8 @@ class TimeCapsule {
       audioDurationSec: (json['audioDurationSec'] as num?)?.toInt(),
       audioWaveform: (json['audioWaveform'] as List?)?.map((e) => (e as num).toDouble()).toList(),
       visualSignature: (json['visualSignature'] ?? 'a4c8e2f09b7531d6').toString(),
+      anchorHeadingDeg: (json['anchorHeadingDeg'] as num?)?.toDouble() ?? 0,
+      spatialSealHash: (json['spatialSealHash'] ?? '').toString(),
       isEncrypted: (json['isEncrypted'] as bool?) ?? false,
       passcodeHint: json['passcodeHint'] as String?,
       createdBy: (json['createdBy'] ?? 'Gezgin').toString(),
@@ -253,6 +259,8 @@ class UnlockAttemptResult {
   final bool arReady;
   final double distanceMeters;
   final double visualMatchScore;
+  final double headingAlignmentScore;
+  final bool spatialSealVerified;
   final AntiSpoofingReport antiSpoofing;
   final String message;
   final TimeCapsule? capsule;
@@ -262,6 +270,8 @@ class UnlockAttemptResult {
     required this.arReady,
     required this.distanceMeters,
     required this.visualMatchScore,
+    this.headingAlignmentScore = 0,
+    this.spatialSealVerified = false,
     required this.antiSpoofing,
     required this.message,
     this.capsule,
@@ -273,6 +283,8 @@ class UnlockAttemptResult {
       arReady: (json['arReady'] as bool?) ?? false,
       distanceMeters: (json['distanceMeters'] as num?)?.toDouble() ?? 0,
       visualMatchScore: (json['visualMatchScore'] as num?)?.toDouble() ?? 0,
+      headingAlignmentScore: (json['headingAlignmentScore'] as num?)?.toDouble() ?? 0,
+      spatialSealVerified: (json['spatialSealVerified'] as bool?) ?? false,
       antiSpoofing: AntiSpoofingReport.fromJson(
         (json['antiSpoofing'] as Map<String, dynamic>?) ?? <String, dynamic>{},
       ),

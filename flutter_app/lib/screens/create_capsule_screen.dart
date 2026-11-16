@@ -6,6 +6,7 @@ import '../services/api_client.dart';
 import '../services/location_sensor_service.dart';
 import '../widgets/audio_note_widget.dart';
 import '../widgets/pixel_art_editor.dart';
+import 'ar_seal_screen.dart';
 
 class CreateCapsuleScreen extends StatefulWidget {
   final ApiClient api;
@@ -36,9 +37,10 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
   String _contentType = 'note';
   String _category = 'Kampüs Yaşamı';
   late double _unlockRadius;
-  bool _isEncrypted = false;
+  bool _isEncrypted = true;
   bool _submitting = false;
   bool _loadingMedia = false;
+  ArSealResult? _arSeal;
 
   List<NearbyMediaItem> _mediaSuggestions = [];
   String? _selectedImageUrl;
@@ -86,6 +88,20 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
     });
   }
 
+  Future<void> _captureArSeal() async {
+    final seal = await Navigator.of(context).push<ArSealResult>(
+      MaterialPageRoute(
+        builder: (_) => ArSealScreen(
+          locationService: widget.locationService,
+          previewImageUrl: _selectedImageUrl,
+        ),
+      ),
+    );
+    if (seal != null && mounted) {
+      setState(() => _arSeal = seal);
+    }
+  }
+
   Future<void> _submit() async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -94,10 +110,22 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
       return;
     }
 
+    if (_arSeal == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Konumu onaylamak için önce "AR ile Konumu Şifrele" adımını tamamlayın.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      await _captureArSeal();
+      if (_arSeal == null) return;
+    }
+
     setState(() => _submitting = true);
 
-    final targetLat = widget.prefilledPlace?.latitude ?? widget.locationService.latitude;
-    final targetLon = widget.prefilledPlace?.longitude ?? widget.locationService.longitude;
+    final seal = _arSeal!;
+    final targetLat = widget.prefilledPlace?.latitude ?? seal.latitude;
+    final targetLon = widget.prefilledPlace?.longitude ?? seal.longitude;
 
     final payload = {
       'title': _titleController.text.trim(),
@@ -119,7 +147,9 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
         'audioWaveform': _audioWaveform.isNotEmpty
             ? _audioWaveform
             : [0.3, 0.6, 0.8, 0.5, 0.9, 0.4, 0.7, 0.5],
-      'visualSignature': 'a4c8e2f09b7531d6',
+      'visualSignature': seal.visualSignature,
+      'anchorHeadingDeg': seal.anchorHeadingDeg,
+      'clientSealProof': seal.clientSealProof,
       'isEncrypted': _isEncrypted,
       'createdBy': widget.themeController.displayName,
     };
@@ -131,9 +161,10 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
     if (created != null) {
       _titleController.clear();
       _noteController.clear();
+      setState(() => _arSeal = null);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('"${created.title}" haritaya bırakıldı!'),
+          content: Text('"${created.title}" AR konumuyla şifrelenip haritaya bırakıldı!'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -359,11 +390,11 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
           ),
           const SizedBox(height: 14),
 
-          // ADIM 3: Kilit Ayarı & Bırak
+          // ADIM 3: AR Konum Şifreleme & Bırak
           _stepCard(
             p: p,
             step: '3',
-            title: 'Kilit Mesafesi',
+            title: 'AR Konum Mührü ve Kilit',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -387,11 +418,11 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 10),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(
-                    'Konum Kilitli Gizli Mesaj',
+                    'AES-256-GCM Konum Şifrelemesi',
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,
@@ -399,12 +430,65 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
                     ),
                   ),
                   subtitle: Text(
-                    'Kullanıcı belirlenen yarıçapa girmeden içerik gizli kalır.',
+                    'Kapsül içeriği yalnızca AR konumu doğrulandığında çözülür.',
                     style: TextStyle(fontSize: 11.5, color: p.textSecondary),
                   ),
                   value: _isEncrypted,
                   activeThumbColor: p.accentPrimary,
                   onChanged: (v) => setState(() => _isEncrypted = v),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _arSeal != null
+                        ? const Color(0xFF10B981).withValues(alpha: 0.12)
+                        : p.surfaceMuted,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _arSeal != null ? const Color(0xFF10B981) : p.border,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _arSeal != null ? Icons.verified_user_rounded : Icons.view_in_ar_rounded,
+                        color: _arSeal != null ? const Color(0xFF10B981) : p.accentPrimary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _arSeal != null
+                                  ? 'AR Konum Mührü Onaylandı'
+                                  : 'AR Konum Mührü Gerekli',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: p.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              _arSeal != null
+                                  ? '${_arSeal!.shortCode} • Yön ${_arSeal!.anchorHeadingDeg.round()}°'
+                                  : 'Bulunduğunuz noktayı AR kamera ile şifreleyin.',
+                              style: TextStyle(fontSize: 11.5, color: p.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      FilledButton.tonal(
+                        onPressed: _captureArSeal,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: p.accentSecondary.withValues(alpha: 0.16),
+                          foregroundColor: p.accentSecondary,
+                        ),
+                        child: Text(_arSeal != null ? 'Yenile' : 'AR Tara'),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

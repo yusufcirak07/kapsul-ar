@@ -70,6 +70,7 @@ class ApiClient {
     required String capsuleId,
     required List<TelemetrySample> telemetryWindow,
     required String visualSignature,
+    double? observedHeadingDeg,
     bool bypassVisualInDemo = false,
   }) async {
     try {
@@ -82,6 +83,7 @@ class ApiClient {
               'capsuleId': capsuleId,
               'telemetryWindow': telemetryWindow.map((t) => t.toJson()).toList(),
               'visualSignature': visualSignature,
+              if (observedHeadingDeg != null) 'observedHeadingDeg': observedHeadingDeg,
               'bypassVisualInDemo': bypassVisualInDemo,
             }),
           )

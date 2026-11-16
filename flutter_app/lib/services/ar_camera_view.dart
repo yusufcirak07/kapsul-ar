@@ -1,12 +1,45 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 
 import 'ar_camera_stub.dart'
     if (dart.library.js_interop) 'ar_camera_web.dart';
 
+class ArCameraController {
+  String Function()? _captureFrameFn;
+
+  void _attach(String Function() fn) {
+    _captureFrameFn = fn;
+  }
+
+  /// Captures a 16-hex visual landmark signature from live camera frame if available,
+  /// or derives a deterministic spatial environment signature from GPS + heading.
+  String captureVisualSignature({
+    required double lat,
+    required double lon,
+    required double headingDeg,
+  }) {
+    final live = _captureFrameFn?.call() ?? '';
+    if (live.length == 16) return live;
+
+    // Spatial fallback when camera hardware is unavailable (e.g., Android Emulator / Desktop)
+    final sector = ((headingDeg % 360 + 360) % 360 / 30).floor();
+    final seed = '${lat.toStringAsFixed(4)}|${lon.toStringAsFixed(4)}|$sector';
+    final digest = sha256.convert(utf8.encode(seed)).toString();
+    return digest.substring(0, 16);
+  }
+}
+
 class ArCameraBackground extends StatefulWidget {
   final String? fallbackImageUrl;
+  final ArCameraController? controller;
 
-  const ArCameraBackground({super.key, this.fallbackImageUrl});
+  const ArCameraBackground({
+    super.key,
+    this.fallbackImageUrl,
+    this.controller,
+  });
 
   @override
   State<ArCameraBackground> createState() => _ArCameraBackgroundState();
@@ -21,7 +54,6 @@ class _ArCameraBackgroundState extends State<ArCameraBackground> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Fallback reference backdrop / dark AR grid when webcam isn't active
         Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -49,8 +81,8 @@ class _ArCameraBackgroundState extends State<ArCameraBackground> {
             onError: (msg) {
               if (mounted) setState(() => _fallbackReason = msg);
             },
+            onRegisterCapture: (fn) => widget.controller?._attach(fn),
           ),
-        // Subtle AR scanning grid overlay
         IgnorePointer(
           child: CustomPaint(painter: _ArGridPainter()),
         ),

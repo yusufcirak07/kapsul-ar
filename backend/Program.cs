@@ -11,6 +11,7 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader());
 });
 
+builder.Services.AddSingleton<SpatialCryptoService>();
 builder.Services.AddSingleton<CapsuleRepository>();
 builder.Services.AddSingleton<SpatialIndexEngine>();
 builder.Services.AddSingleton<AntiSpoofingEngine>();
@@ -91,6 +92,10 @@ app.MapGet("/api/capsules", (
             c.LocationName,
             c.ImageUrl,
             c.VisualSignature,
+            c.AnchorHeadingDeg,
+            SpatialSealHash = string.IsNullOrWhiteSpace(c.SpatialSealHash)
+                ? c.Geohash.ToUpperInvariant()
+                : c.SpatialSealHash,
             c.IsEncrypted,
             c.PasscodeHint,
             c.CreatedBy,
@@ -130,7 +135,8 @@ app.MapPost("/api/capsules/unlock", (
     UnlockAttemptRequest req,
     CapsuleRepository repo,
     AntiSpoofingEngine antiSpoof,
-    VisualPositioningService visual) =>
+    VisualPositioningService visual,
+    SpatialCryptoService crypto) =>
 {
     var capsule = repo.GetById(req.CapsuleId);
     if (capsule is null)
@@ -164,6 +170,10 @@ app.MapPost("/api/capsules/unlock", (
         ? 91.5
         : visual.ComputeSimilarity(capsule.VisualSignature, req.VisualSignature);
 
+    double headingScore = req.ObservedHeadingDeg.HasValue
+        ? crypto.ComputeHeadingAlignmentScore(capsule.AnchorHeadingDeg, req.ObservedHeadingDeg.Value)
+        : 85.0;
+
     if (!antiReport.Passed)
     {
         return Results.Ok(new UnlockAttemptResponse
@@ -172,6 +182,7 @@ app.MapPost("/api/capsules/unlock", (
             ArReady = arReady,
             DistanceMeters = dist,
             VisualMatchScore = visualScore,
+            HeadingAlignmentScore = headingScore,
             AntiSpoofing = antiReport,
             Message = $"Güvenlik katmanı reddetti: {antiReport.Reason}"
         });
@@ -185,9 +196,10 @@ app.MapPost("/api/capsules/unlock", (
             ArReady = arReady,
             DistanceMeters = dist,
             VisualMatchScore = visualScore,
+            HeadingAlignmentScore = headingScore,
             AntiSpoofing = antiReport,
             Message = arReady
-                ? $"AR görüş alanındasınız ({dist:F1} m). Kilit açmak için {capsule.UnlockRadiusMeters:F0} m içine yaklaşın."
+                ? $"AR görüş alanındasınız ({dist:F1} m). Şifreli konumu çözmek için {capsule.UnlockRadiusMeters:F0} m içine yaklaşın."
                 : $"Hedefe henüz uzaksınız ({dist:F1} m). Kilit açmak için {capsule.UnlockRadiusMeters:F0} m içine yürüyün."
         });
     }
@@ -200,21 +212,77 @@ app.MapPost("/api/capsules/unlock", (
             ArReady = true,
             DistanceMeters = dist,
             VisualMatchScore = visualScore,
+            HeadingAlignmentScore = headingScore,
             AntiSpoofing = antiReport,
-            Message = $"Görsel yer işareti eşleşmesi yetersiz (%{visualScore:F0}). Kamerayı referans mekana doğrultun."
+            Message = $"AR görsel yer işareti eşleşmesi yetersiz (%{visualScore:F0}). Kamerayı referans mekana doğrultun."
         });
     }
 
+    // Decrypt AES-256-GCM spatially sealed payload when all physical + AR layers succeed
+    string? decryptedNote = capsule.NoteText;
+    bool sealVerified = true;
+    if (!string.IsNullOrWhiteSpace(capsule.EncryptedPayload) &&
+        !string.IsNullOrWhiteSpace(capsule.SealNonce) &&
+        !string.IsNullOrWhiteSpace(capsule.SealTag))
+    {
+        var plain = crypto.DecryptSpatialPayload(
+            capsule.EncryptedPayload,
+            capsule.SealNonce,
+            capsule.SealTag,
+            capsule.Id,
+            capsule.Latitude,
+            capsule.Longitude,
+            capsule.VisualSignature
+        );
+        if (plain != null)
+        {
+            decryptedNote = plain;
+        }
+        else
+        {
+            sealVerified = false;
+        }
+    }
+
     repo.RecordUnlock(capsule.Id);
+    var unlockedView = new Capsule
+    {
+        Id = capsule.Id,
+        Title = capsule.Title,
+        Description = capsule.Description,
+        Category = capsule.Category,
+        ContentType = capsule.ContentType,
+        Latitude = capsule.Latitude,
+        Longitude = capsule.Longitude,
+        UnlockRadiusMeters = capsule.UnlockRadiusMeters,
+        ArTriggerRadiusMeters = capsule.ArTriggerRadiusMeters,
+        LocationName = capsule.LocationName,
+        ImageUrl = capsule.ImageUrl,
+        NoteText = decryptedNote,
+        PixelArtGrid = capsule.PixelArtGrid,
+        AudioDurationSec = capsule.AudioDurationSec,
+        AudioWaveform = capsule.AudioWaveform,
+        VisualSignature = capsule.VisualSignature,
+        AnchorHeadingDeg = capsule.AnchorHeadingDeg,
+        SpatialSealHash = capsule.SpatialSealHash,
+        IsEncrypted = capsule.IsEncrypted,
+        CreatedBy = capsule.CreatedBy,
+        CreatedAt = capsule.CreatedAt,
+        UnlockCount = capsule.UnlockCount,
+        Geohash = capsule.Geohash
+    };
+
     return Results.Ok(new UnlockAttemptResponse
     {
         Unlocked = true,
         ArReady = true,
         DistanceMeters = dist,
         VisualMatchScore = visualScore,
+        HeadingAlignmentScore = headingScore,
+        SpatialSealVerified = sealVerified,
         AntiSpoofing = antiReport,
-        Message = "Hibrit konum ve görsel doğrulama başarılı! Zaman kapsülü açıldı.",
-        Capsule = capsule
+        Message = "AR konum mührü ve AES-256-GCM şifresi doğrulandı! Zaman kapsülü açıldı.",
+        Capsule = unlockedView
     });
 });
 

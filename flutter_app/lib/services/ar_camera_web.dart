@@ -9,15 +9,25 @@ int _cameraViewCounter = 0;
 Widget buildPlatformCameraPreview({
   required VoidCallback onReady,
   required ValueChanged<String> onError,
+  void Function(String Function() captureFn)? onRegisterCapture,
 }) {
-  return _WebArVideoWidget(onReady: onReady, onError: onError);
+  return _WebArVideoWidget(
+    onReady: onReady,
+    onError: onError,
+    onRegisterCapture: onRegisterCapture,
+  );
 }
 
 class _WebArVideoWidget extends StatefulWidget {
   final VoidCallback onReady;
   final ValueChanged<String> onError;
+  final void Function(String Function() captureFn)? onRegisterCapture;
 
-  const _WebArVideoWidget({required this.onReady, required this.onError});
+  const _WebArVideoWidget({
+    required this.onReady,
+    required this.onError,
+    this.onRegisterCapture,
+  });
 
   @override
   State<_WebArVideoWidget> createState() => _WebArVideoWidgetState();
@@ -25,6 +35,7 @@ class _WebArVideoWidget extends StatefulWidget {
 
 class _WebArVideoWidgetState extends State<_WebArVideoWidget> {
   late final String _viewType;
+  late final web.HTMLVideoElement _video;
   web.MediaStream? _stream;
 
   @override
@@ -32,7 +43,7 @@ class _WebArVideoWidgetState extends State<_WebArVideoWidget> {
     super.initState();
     _viewType = 'kapsul-ar-video-${_cameraViewCounter++}';
 
-    final video = web.document.createElement('video') as web.HTMLVideoElement
+    _video = (web.document.createElement('video') as web.HTMLVideoElement)
       ..autoplay = true
       ..muted = true
       ..setAttribute('playsinline', 'true')
@@ -40,8 +51,32 @@ class _WebArVideoWidgetState extends State<_WebArVideoWidget> {
       ..style.height = '100%'
       ..style.objectFit = 'cover';
 
-    ui_web.platformViewRegistry.registerViewFactory(_viewType, (int _) => video);
-    _startCamera(video);
+    ui_web.platformViewRegistry.registerViewFactory(_viewType, (int _) => _video);
+    widget.onRegisterCapture?.call(_captureFrameSignature);
+    _startCamera(_video);
+  }
+
+  String _captureFrameSignature() {
+    try {
+      if (_video.videoWidth <= 0 || _video.videoHeight <= 0) return '';
+      final canvas = (web.document.createElement('canvas') as web.HTMLCanvasElement)
+        ..width = 4
+        ..height = 4;
+      final ctx = canvas.context2D;
+      ctx.drawImage(_video, 0, 0, 4, 4);
+      final data = ctx.getImageData(0, 0, 4, 4).data.toDart;
+      final buf = StringBuffer();
+      for (int i = 0; i < 16 && (i * 4 + 2) < data.length; i++) {
+        final r = data[i * 4];
+        final g = data[i * 4 + 1];
+        final b = data[i * 4 + 2];
+        final lum = ((0.299 * r + 0.587 * g + 0.114 * b) / 16).round().clamp(0, 15);
+        buf.write(lum.toRadixString(16));
+      }
+      return buf.toString();
+    } catch (_) {
+      return '';
+    }
   }
 
   Future<void> _startCamera(web.HTMLVideoElement video) async {
