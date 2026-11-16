@@ -1,0 +1,19 @@
+{
+  "name": "KapsülAR — Dijital Zaman Kapsülü",
+  "short_name": "KapsülAR",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#1E3A8A",
+  "description": "WebAR ve hibrit konum doğrulamalı konum kilitli dijital zaman kapsülü sistemi.",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
