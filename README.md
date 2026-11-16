@@ -1,3 +1,5 @@
+<img src="docs/screenshots/cover.jpg" width=%100 />
+
 # KapsülAR — Konum Kilitli Dijital Zaman Kapsülü Sistemi
 
 Web Tabanlı Artırılmış Gerçeklik (WebAR / PWA) ve Hibrit Konum Doğrulama mimarisi kullanılarak mekansal etkileşim ve fiziksel aktivite motivasyonunu artırmak amacıyla geliştirilen **Flutter (PWA + Mobil)** ve **ASP.NET Core (.NET 10) Uzamsal REST API** projesi.
