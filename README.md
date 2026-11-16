@@ -19,7 +19,7 @@ Web Tabanlı Artırılmış Gerçeklik (WebAR / PWA) ve Hibrit Konum Doğrulama 
 
 ## 2. Öne Çıkan Özellikler ve Ekran Görüntüleri
 
-### 1. Sade ve Anlaşılır 4 Sekmeli Arayüz
+### 1. Sade ve Anlaşılır 4 Sekmeli Arayüz (WIP User Interface)
 
 - **Keşfet:** OpenStreetMap haritası, 15m WebAR tetikleme / 5m kilit halkaları, pusula yönelim göstergesi, Wikimedia görselli kapsül kartları, açık/karanlık tema desteği ve masaüstü/iç mekan testleri için **Yürüyüş Simülatörü (1.5 m/s)**.
 
