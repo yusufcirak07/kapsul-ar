@@ -15,20 +15,41 @@ Web Tabanlı Artırılmış Gerçeklik (WebAR / PWA) ve Hibrit Konum Doğrulama 
 
 ---
 
-## 2. Öne Çıkan Özellikler
+## 2. Öne Çıkan Özellikler ve Ekran Görüntüleri
 
-1. **Sade ve Anlaşılır 4 Sekmeli Arayüz**
-   - **Keşfet:** OpenStreetMap haritası, 15m WebAR tetikleme / 5m kilit halkaları, Wikimedia görselli kapsül kartları ve masaüstü/iç mekan testleri için **Yürüyüş Simülatörü (1.5 m/s)**.
-   - **Bırak:** Metin/Şifreli Not, Fotoğraf, **16×16 Piksel Sanat Tuvali**, Sesli Anı oluşturma ve **Wikimedia Commons'tan mekana uygun görsel çekme**.
-   - **Aktivite:** Günlük adım, yürünen mesafe (km) ve açılan zaman kapsülleri arşivi.
-   - **Lab:**
-     - **10.000 Noktalı Canlı Uzamsal İndeks Kıyaslaması:** İndekssiz tarama vs `Geohash` vs `SP-GiST (QuadTree)` vs `GiST (R-Tree/MBR)`.
-     - **30 Saniyelik Hibrit Anti-Spoofing Testi:** Normal yürüyüş vs imkansız GPS sıçraması + sensör füzyonu tutarlılığı.
-     - **SUS & TAM Değerlendirme Formu:** Anlık SUS puanı hesaplama (hedef > 75).
+### 1. Sade ve Anlaşılır 4 Sekmeli Arayüz
 
-2. **WebAR Kilit Açma Akışı**
-   - Kapsüle 15m yaklaşıldığında kamera (`navigator.mediaDevices.getUserMedia`) ve görsel yer işareti doğrulaması açılır.
-   - Sunucu tarafı son 30 saniyelik hız/ivme penceresini doğrular; 5m içine girildiğinde zaman kapsülünü açar.
+- **Keşfet:** OpenStreetMap haritası, 15m WebAR tetikleme / 5m kilit halkaları, pusula yönelim göstergesi, Wikimedia görselli kapsül kartları, açık/karanlık tema desteği ve masaüstü/iç mekan testleri için **Yürüyüş Simülatörü (1.5 m/s)**.
+
+| Keşfet (Açık Tema) | Keşfet (Karanlık Tema) |
+| :---: | :---: |
+| <img src="docs/screenshots/explore_light.jpg" width="240" alt="Keşfet Sekmesi - Açık Tema" /> | <img src="docs/screenshots/explore_dark.jpg" width="240" alt="Keşfet Sekmesi - Karanlık Tema" /> |
+
+- **Bırak:** Bulunulan GPS koordinatına Metin/Şifreli Not, Fotoğraf, **16×16 Piksel Sanat Tuvali**, Sesli Anı oluşturma ve **Wikimedia Commons'tan mekana uygun görsel çekme**.
+
+| Zaman Kapsülü Bırak |
+| :---: |
+| <img src="docs/screenshots/create_capsule.jpg" width="240" alt="Bırak Sekmesi - Zaman Kapsülü Oluşturma" /> |
+
+- **Aktivite & Profil (Araştırma Laboratuvarı):**
+  - **Aktivite:** Günlük adım sayısı, yürünen mesafe (km), günlük hedef takibi ve açılan zaman kapsülleri arşivi.
+  - **Profil & Araçlar:** Karanlık Tema anahtarı, Gerçek GPS Modu, varsayılan kilit yarıçapı (5 m / 10 m / 15 m) ve **Araştırma Laboratuvarı** erişimi:
+    - **10.000 Noktalı Canlı Uzamsal İndeks Kıyaslaması:** İndekssiz tarama vs `Geohash` vs `SP-GiST (QuadTree)` vs `GiST (R-Tree/MBR)`.
+    - **30 Saniyelik Hibrit Anti-Spoofing Testi:** Normal yürüyüş vs imkansız GPS sıçraması + sensör füzyonu tutarlılığı.
+    - **SUS & TAM Değerlendirme Formu:** Anlık SUS puanı hesaplama (hedef > 75).
+
+| Aktivite Sekmesi | Profil & Araştırma Laboratuvarı |
+| :---: | :---: |
+| <img src="docs/screenshots/activity.jpg" width="240" alt="Aktivite Sekmesi" /> | <img src="docs/screenshots/profile.jpg" width="240" alt="Profil ve Ayarlar Sekmesi" /> |
+
+### 2. WebAR / AR Anti-Spoof Kilit Açma Akışı (Anı Hapı)
+
+- Kapsüle 15m yaklaşıldığında harita radarı üzerinden ARCore/WebRTC kamera (`navigator.mediaDevices.getUserMedia`), IMU ve görsel çapa doğrulaması tetiklenir.
+- **ORB inlier eşleşmesi**, **VIO yer değiştirme (`VIO Δ`)** ve **2B düzlem oranı (anti-spoofing)** kontrolleri geçildiğinde; sunucu tarafı son 30 saniyelik hız/ivme penceresini doğrular ve kapsülün şifresini çözer.
+
+| 1. Harita Radarı & Menzil | 2. Görsel Çapa & Anti-Spoof Reddi | 3. Doğrulama & Şifre Çözme |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/ar_radar.jpg" width="220" alt="Anı Hapı AR Anti-Spoof Harita Radarı" /> | <img src="docs/screenshots/ar_verification_rejected.jpg" width="220" alt="AR Doğrulama Reddedildi - Yetersiz ORB Eşleşmesi" /> | <img src="docs/screenshots/ar_verification_success.jpg" width="220" alt="AR Doğrulama Başarılı - Hap Açıldı" /> |
 
 ---
 
