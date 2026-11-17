@@ -17,12 +17,12 @@ Konum tabanlı mobil ve web artırılmış gerçeklik (WebAR) uygulamalarındaki
 | :--- | :--- |
 | **Proje Başlığı** | Konum Tabanlı Artırılmış Gerçeklik Sistemlerinde Çok Sensörlü Konum Sahteciliği Tespiti ve PostGIS Uzamsal İndeksleme Yapılarının Performans Analizi: KapsülAR[cite: 1] |
 | **Araştırma Grubu** | **SOY Tech**[cite: 1] |
-| **Proje Yürütücüsü** | **Semih Beyaztaş** *(Tek Yürütücü — TÜBİTAK 2209-A Kuralı Gereği)*[cite: 1] |
+| **Proje Yürütücüsü** | **Semih Beyaztaş** [cite: 1] |
 | **Araştırmacılar** | **Ozan Hasköy**, **Yusuf Çırak**[cite: 1] |
 | **Proje Danışmanı** | *[Danışman Unvanı Adı Soyadı - Üniversite / Bölüm]*[cite: 1] |
 | **Yürütüleceği Kurum** | *[Üniversite / Fakülte / Bölüm Adı]*[cite: 1] |
 | **Öngörülen Proje Süresi** | 12 Ay[cite: 1] |
-| **Talep Edilen Bütçe** | 8.000,00 TL *(TÜBİTAK 2209-A 12.000 TL üst sınırının altındadır)*[cite: 1] |
+| **Talep Edilen Bütçe** | 8.000,00 TL [cite: 1] |
 
 ---
 
@@ -71,7 +71,7 @@ Sistem **.NET 10 (ASP.NET Core Minimal API)**, **Flutter (PWA/Mobil)**, **Python
 
 ```mermaid
 flowchart LR
-    U["Kullanıcı (Flutter PWA / Android & iOS)"] -->|"GPS + IMU (30 sn Pencere) + ARCore/WebRTC"| API["ASP.NET Core (.NET 10) Minimal API"]
+    U["Kullanıcı (Flutter PWA / Android & iOS)"] -->|"GPS + IMU + ARCore/WebRTC"| API["ASP.NET Core Minimal API"]
     API -->|"1. Mock & Jitter σ (0.25)"| AS["AntiSpoofingEngine"]
     API -->|"2. Kinematik Hız/İvme (0.35)"| AS
     API -->|"3. 2B Kalman Drift (0.20)"| AS
