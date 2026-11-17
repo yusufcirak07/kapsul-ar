@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -402,6 +403,532 @@ class ApiClient {
       }
     } catch (_) {}
     return null;
+  }
+
+  Future<List<WalkingRoute>> fetchRoutes({
+    required double lat,
+    required double lon,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/routes').replace(queryParameters: {
+        'lat': lat.toString(),
+        'lon': lon.toString(),
+      });
+      final resp = await http.get(uri).timeout(const Duration(seconds: 4));
+      if (resp.statusCode == 200) {
+        isBackendOnline = true;
+        final List<dynamic> data = jsonDecode(resp.body) as List<dynamic>;
+        final routes = data
+            .map((e) => WalkingRoute.fromJson(e as Map<String, dynamic>))
+            .toList();
+        await _cacheRoutes(routes);
+        return routes;
+      }
+    } catch (_) {
+      isBackendOnline = false;
+    }
+    return _loadCachedOrSeededRoutes(lat, lon);
+  }
+
+  Future<WalkingRoute?> createRoute({
+    required String title,
+    required String description,
+    required String cityDistrict,
+    required String difficulty,
+    required String socialTag,
+    required bool isRawPreset,
+    required String createdBy,
+    required List<RouteWaypoint> waypoints,
+  }) async {
+    try {
+      final resp = await http
+          .post(
+            Uri.parse('$baseUrl/api/routes'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'title': title,
+              'description': description,
+              'cityDistrict': cityDistrict,
+              'difficulty': difficulty,
+              'socialTag': socialTag,
+              'isRawPreset': isRawPreset,
+              'createdBy': createdBy,
+              'waypoints': waypoints.map((w) => w.toJson()).toList(),
+            }),
+          )
+          .timeout(const Duration(seconds: 5));
+      if (resp.statusCode == 201 || resp.statusCode == 200) {
+        isBackendOnline = true;
+        final created = WalkingRoute.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+        final current = await _loadCachedOrSeededRoutes(
+          waypoints.first.latitude,
+          waypoints.first.longitude,
+        );
+        await _cacheRoutes([created, ...current.where((r) => r.id != created.id)]);
+        return created;
+      }
+    } catch (_) {
+      isBackendOnline = false;
+    }
+
+    // Offline fallback: save locally so zero-to-one route creation always works
+    final totalMeters = computeRouteDistanceMeters(waypoints);
+    final distKm = double.parse((totalMeters / 1000.0).toStringAsFixed(2));
+    final localRoute = WalkingRoute(
+      id: 'rt-local-${DateTime.now().millisecondsSinceEpoch}',
+      title: title,
+      description: description,
+      cityDistrict: cityDistrict,
+      routeCategory: isRawPreset ? 'Ham Rota' : 'Topluluk Rotası',
+      difficulty: difficulty,
+      socialTag: socialTag,
+      isRawPreset: isRawPreset,
+      createdBy: createdBy,
+      createdAt: DateTime.now(),
+      distanceKm: distKm,
+      estimatedMinutes: max(8, (distKm / 4.2 * 60).round()),
+      estimatedSteps: max(150, (totalMeters / 0.72).round()),
+      averageRating: 0,
+      ratingCount: 0,
+      completionCount: 0,
+      waypoints: waypoints,
+    );
+    final current = await _loadCachedOrSeededRoutes(
+      waypoints.first.latitude,
+      waypoints.first.longitude,
+    );
+    await _cacheRoutes([localRoute, ...current]);
+    return localRoute;
+  }
+
+  Future<WalkingRoute?> rateRoute({
+    required String routeId,
+    required String userName,
+    required int stars,
+    required String comment,
+    required int moodBoostScore,
+  }) async {
+    try {
+      final resp = await http
+          .post(
+            Uri.parse('$baseUrl/api/routes/$routeId/rate'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'userName': userName,
+              'stars': stars,
+              'comment': comment,
+              'moodBoostScore': moodBoostScore,
+            }),
+          )
+          .timeout(const Duration(seconds: 4));
+      if (resp.statusCode == 200) {
+        isBackendOnline = true;
+        final updated = WalkingRoute.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+        await _replaceCachedRoute(updated);
+        return updated;
+      }
+    } catch (_) {
+      isBackendOnline = false;
+    }
+
+    // Offline rating fallback
+    final current = await _loadCachedOrSeededRoutes(AppConfig.defaultLat, AppConfig.defaultLon);
+    final idx = current.indexWhere((r) => r.id == routeId);
+    if (idx < 0) return null;
+    final target = current[idx];
+    final newRatings = [
+      RouteRating(
+        id: 'rate-${DateTime.now().millisecondsSinceEpoch}',
+        userName: userName,
+        stars: stars.clamp(1, 5),
+        comment: comment,
+        moodBoostScore: moodBoostScore.clamp(1, 5),
+        createdAt: DateTime.now(),
+      ),
+      ...target.ratings,
+    ];
+    final avg = newRatings.map((e) => e.stars).reduce((a, b) => a + b) / newRatings.length;
+    final updated = WalkingRoute(
+      id: target.id,
+      title: target.title,
+      description: target.description,
+      cityDistrict: target.cityDistrict,
+      routeCategory: target.routeCategory,
+      difficulty: target.difficulty,
+      socialTag: target.socialTag,
+      isRawPreset: target.isRawPreset,
+      createdBy: target.createdBy,
+      createdAt: target.createdAt,
+      distanceKm: target.distanceKm,
+      estimatedMinutes: target.estimatedMinutes,
+      estimatedSteps: target.estimatedSteps,
+      averageRating: double.parse(avg.toStringAsFixed(1)),
+      ratingCount: newRatings.length,
+      completionCount: target.completionCount,
+      distanceFromUserKm: target.distanceFromUserKm,
+      waypoints: target.waypoints,
+      ratings: newRatings,
+    );
+    current[idx] = updated;
+    await _cacheRoutes(current);
+    return updated;
+  }
+
+  Future<WalkingRoute?> completeRoute({
+    required String routeId,
+    int? moodBoostScore,
+  }) async {
+    try {
+      final resp = await http
+          .post(
+            Uri.parse('$baseUrl/api/routes/$routeId/complete'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'userId': 'pwa-user',
+              if (moodBoostScore != null) 'moodBoostScore': moodBoostScore,
+            }),
+          )
+          .timeout(const Duration(seconds: 4));
+      if (resp.statusCode == 200) {
+        isBackendOnline = true;
+        final map = jsonDecode(resp.body) as Map<String, dynamic>;
+        if (map['route'] != null) {
+          final updated = WalkingRoute.fromJson(map['route'] as Map<String, dynamic>);
+          await _replaceCachedRoute(updated);
+          return updated;
+        }
+      }
+    } catch (_) {
+      isBackendOnline = false;
+    }
+
+    final current = await _loadCachedOrSeededRoutes(AppConfig.defaultLat, AppConfig.defaultLon);
+    final idx = current.indexWhere((r) => r.id == routeId);
+    if (idx < 0) return null;
+    final t = current[idx];
+    final updated = WalkingRoute(
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      cityDistrict: t.cityDistrict,
+      routeCategory: t.routeCategory,
+      difficulty: t.difficulty,
+      socialTag: t.socialTag,
+      isRawPreset: t.isRawPreset,
+      createdBy: t.createdBy,
+      createdAt: t.createdAt,
+      distanceKm: t.distanceKm,
+      estimatedMinutes: t.estimatedMinutes,
+      estimatedSteps: t.estimatedSteps,
+      averageRating: t.averageRating,
+      ratingCount: t.ratingCount,
+      completionCount: t.completionCount + 1,
+      distanceFromUserKm: t.distanceFromUserKm,
+      waypoints: t.waypoints,
+      ratings: t.ratings,
+    );
+    current[idx] = updated;
+    await _cacheRoutes(current);
+    return updated;
+  }
+
+  Future<WalkingRoute> suggestLocalRoute({
+    required double lat,
+    required double lon,
+    List<NearbyMediaItem> nearbyPlaces = const [],
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/routes/suggest').replace(queryParameters: {
+        'lat': lat.toString(),
+        'lon': lon.toString(),
+      });
+      final resp = await http.get(uri).timeout(const Duration(seconds: 6));
+      if (resp.statusCode == 200) {
+        isBackendOnline = true;
+        final created = WalkingRoute.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+        final current = await _loadCachedOrSeededRoutes(lat, lon);
+        await _cacheRoutes([created, ...current.where((r) => r.id != created.id)]);
+        return created;
+      }
+    } catch (_) {
+      isBackendOnline = false;
+    }
+
+    // Offline smart local loop generator for any small town/district
+    final waypoints = <RouteWaypoint>[
+      RouteWaypoint(
+        order: 1,
+        name: 'Başlangıç Konumunuz',
+        latitude: lat,
+        longitude: lon,
+        hint: 'Yürüyüş başlangıç noktası',
+      ),
+    ];
+
+    final validPlaces = nearbyPlaces
+        .where((p) => p.latitude != null && p.longitude != null)
+        .where((p) {
+          final d = LocationSensorService.distanceMeters(lat, lon, p.latitude!, p.longitude!);
+          return d >= 40 && d <= 2500;
+        })
+        .take(3)
+        .toList();
+
+    if (validPlaces.length >= 2) {
+      for (int i = 0; i < validPlaces.length; i++) {
+        waypoints.add(RouteWaypoint(
+          order: i + 2,
+          name: validPlaces[i].title,
+          latitude: validPlaces[i].latitude!,
+          longitude: validPlaces[i].longitude!,
+          hint: validPlaces[i].description,
+        ));
+      }
+    } else {
+      final cosLat = max(cos(lat * pi / 180.0), 0.1);
+      double dLat(double m) => m / 111320.0;
+      double dLon(double m) => m / (111320.0 * cosLat);
+      waypoints.addAll([
+        RouteWaypoint(
+          order: 2,
+          name: 'Mahalle / Kampüs Park Durağı',
+          latitude: lat + dLat(260),
+          longitude: lon + dLon(190),
+          hint: 'Temiz hava ve esneme molası',
+        ),
+        RouteWaypoint(
+          order: 3,
+          name: 'Sosyal Buluşma & Seyir Noktası',
+          latitude: lat + dLat(120),
+          longitude: lon + dLon(420),
+          hint: 'Zaman kapsülü bırakma noktası',
+        ),
+        RouteWaypoint(
+          order: 4,
+          name: 'Dönüş & Bitiş Çemberi',
+          latitude: lat - dLat(90),
+          longitude: lon + dLon(180),
+          hint: 'Yaklaşık 1.3 km sosyal yürüyüş bitişi',
+        ),
+      ]);
+    }
+
+    final totalMeters = computeRouteDistanceMeters(waypoints);
+    final distKm = double.parse((totalMeters / 1000.0).toStringAsFixed(2));
+    final generated = WalkingRoute(
+      id: 'rt-auto-${DateTime.now().millisecondsSinceEpoch}',
+      title: 'Konumuma Özel Sosyal Keşif Rotası',
+      description:
+          'Çevrenizdeki açık alan ve mekanlardan otomatik üretilen başlangıç rotası.',
+      cityDistrict: 'Yakın Çevrem',
+      routeCategory: 'Otomatik Çevre Rotası',
+      difficulty: 'Kolay',
+      socialTag: 'Hareketsizliği Kıran Keşif',
+      isRawPreset: false,
+      createdBy: 'Otomatik Rota Motoru',
+      createdAt: DateTime.now(),
+      distanceKm: distKm,
+      estimatedMinutes: max(8, (distKm / 4.2 * 60).round()),
+      estimatedSteps: max(200, (totalMeters / 0.72).round()),
+      averageRating: 0,
+      ratingCount: 0,
+      completionCount: 0,
+      waypoints: waypoints,
+    );
+    final current = await _loadCachedOrSeededRoutes(lat, lon);
+    await _cacheRoutes([generated, ...current]);
+    return generated;
+  }
+
+  Future<void> submitWellBeing({
+    required int moodScore,
+    required int socialConnectedness,
+    String? routeId,
+  }) async {
+    try {
+      await http
+          .post(
+            Uri.parse('$baseUrl/api/experiments/wellbeing'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'userId': 'pwa-user',
+              'moodScore': moodScore,
+              'socialConnectedness': socialConnectedness,
+              if (routeId != null) 'routeId': routeId,
+            }),
+          )
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {}
+  }
+
+  static double computeRouteDistanceMeters(List<RouteWaypoint> waypoints) {
+    double total = 0;
+    for (int i = 1; i < waypoints.length; i++) {
+      total += LocationSensorService.distanceMeters(
+        waypoints[i - 1].latitude,
+        waypoints[i - 1].longitude,
+        waypoints[i].latitude,
+        waypoints[i].longitude,
+      );
+    }
+    return total;
+  }
+
+  Future<void> _cacheRoutes(List<WalkingRoute> routes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'cached_routes_v1',
+      jsonEncode(routes.map((r) => r.toJson()).toList()),
+    );
+  }
+
+  Future<void> _replaceCachedRoute(WalkingRoute updated) async {
+    final current = await _loadCachedOrSeededRoutes(AppConfig.defaultLat, AppConfig.defaultLon);
+    final idx = current.indexWhere((r) => r.id == updated.id);
+    if (idx >= 0) {
+      current[idx] = updated;
+    } else {
+      current.insert(0, updated);
+    }
+    await _cacheRoutes(current);
+  }
+
+  Future<List<WalkingRoute>> _loadCachedOrSeededRoutes(double lat, double lon) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('cached_routes_v1');
+    List<WalkingRoute> routes;
+    if (raw != null) {
+      final decoded = jsonDecode(raw) as List<dynamic>;
+      routes = decoded
+          .map((e) => WalkingRoute.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } else {
+      routes = _fallbackSeededRoutes();
+    }
+    return routes.map((r) {
+      final distKm = r.waypoints.isNotEmpty
+          ? double.parse((LocationSensorService.distanceMeters(
+                    lat,
+                    lon,
+                    r.waypoints.first.latitude,
+                    r.waypoints.first.longitude,
+                  ) /
+                  1000.0)
+              .toStringAsFixed(2))
+          : 0.0;
+      return WalkingRoute(
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        cityDistrict: r.cityDistrict,
+        routeCategory: r.routeCategory,
+        difficulty: r.difficulty,
+        socialTag: r.socialTag,
+        isRawPreset: r.isRawPreset,
+        createdBy: r.createdBy,
+        createdAt: r.createdAt,
+        distanceKm: r.distanceKm,
+        estimatedMinutes: r.estimatedMinutes,
+        estimatedSteps: r.estimatedSteps,
+        averageRating: r.averageRating,
+        ratingCount: r.ratingCount,
+        completionCount: r.completionCount,
+        distanceFromUserKm: distKm,
+        waypoints: r.waypoints,
+        ratings: r.ratings,
+      );
+    }).toList();
+  }
+
+  static List<WalkingRoute> _fallbackSeededRoutes() {
+    return [
+      WalkingRoute(
+        id: 'rt-likya',
+        title: 'Likya Yolu: Ovacık – Faralya – Kabak Ham Rotası',
+        description:
+            'Likya Yolu başlangıç etabının ham GPS duraklı rotası. Doğa yürüyüşü ve grup sosyalleşmesi için referans parkur.',
+        cityDistrict: 'Muğla / Fethiye',
+        routeCategory: 'Ham Rota',
+        difficulty: 'Orta',
+        socialTag: 'Doğa & Kültür Keşfi',
+        isRawPreset: true,
+        createdBy: 'Likya Ham Rota Arşivi',
+        createdAt: DateTime.now(),
+        distanceKm: 12.6,
+        estimatedMinutes: 180,
+        estimatedSteps: 17500,
+        averageRating: 5.0,
+        ratingCount: 2,
+        completionCount: 34,
+        waypoints: const [
+          RouteWaypoint(order: 1, name: 'Ovacık Likya Başlangıç Kapısı', latitude: 36.5718, longitude: 29.1536),
+          RouteWaypoint(order: 2, name: 'Kozağaç Çeşmesi', latitude: 36.5542, longitude: 29.1465),
+          RouteWaypoint(order: 3, name: 'Kirme Köyü Sırtı', latitude: 36.5356, longitude: 29.1394),
+          RouteWaypoint(order: 4, name: 'Faralya – Kelebekler Vadisi Üstü', latitude: 36.4945, longitude: 29.1328),
+          RouteWaypoint(order: 5, name: 'Kabak Koyu İniş Patikası', latitude: 36.4648, longitude: 29.1241),
+        ],
+        ratings: [
+          RouteRating(
+            id: 'r1',
+            userName: 'Zeynep K.',
+            stars: 5,
+            moodBoostScore: 5,
+            comment: 'Ham duraklar net olduğu için yalnız gelenlerle Faralya\'da yürüyüş grubu kurduk.',
+            createdAt: DateTime.now(),
+          ),
+        ],
+      ),
+      WalkingRoute(
+        id: 'rt-oltu',
+        title: 'Küçük İlçe Keşif: Oltu Kalesi – Çoruh Kenarı Öğrenci Hattı',
+        description:
+            'Küçük ilçede okuyan üniversite öğrencilerinin kampüs dışına çıkıp sosyalleşebileceği akşamüstü rotası.',
+        cityDistrict: 'Erzurum / Oltu',
+        routeCategory: 'Ham Rota',
+        difficulty: 'Kolay',
+        socialTag: 'Üni Öğrenci Buluşması',
+        isRawPreset: true,
+        createdBy: 'İlçe Gençlik Yürüyüşü',
+        createdAt: DateTime.now(),
+        distanceKm: 1.45,
+        estimatedMinutes: 21,
+        estimatedSteps: 2010,
+        averageRating: 4.5,
+        ratingCount: 1,
+        completionCount: 19,
+        waypoints: const [
+          RouteWaypoint(order: 1, name: 'Oltu Kampüs / MYO Çıkışı', latitude: 40.5468, longitude: 41.9942),
+          RouteWaypoint(order: 2, name: 'Oltu Kalesi Çevresi', latitude: 40.5495, longitude: 41.9963),
+          RouteWaypoint(order: 3, name: 'Kültür Parkı & Kütüphane Önü', latitude: 40.5512, longitude: 41.9990),
+          RouteWaypoint(order: 4, name: 'Oltu Çayı Yürüyüş Bandı', latitude: 40.5477, longitude: 42.0028),
+        ],
+      ),
+      WalkingRoute(
+        id: 'rt-beyazit',
+        title: 'Beyazıt – Süleymaniye Sosyal & Kültür Yürüyüşü',
+        description:
+            'Kampüste hareketsiz kalan öğrenciler için tarihi durakları ve kitapçıları bağlayan sosyalleşme rotası.',
+        cityDistrict: 'İstanbul / Fatih',
+        routeCategory: 'Topluluk Rotası',
+        difficulty: 'Kolay',
+        socialTag: 'Üni Öğrenci Buluşması',
+        isRawPreset: false,
+        createdBy: 'SOY Tech Keşif Ekibi',
+        createdAt: DateTime.now(),
+        distanceKm: 0.72,
+        estimatedMinutes: 12,
+        estimatedSteps: 1000,
+        averageRating: 4.5,
+        ratingCount: 2,
+        completionCount: 46,
+        waypoints: const [
+          RouteWaypoint(order: 1, name: 'İ.Ü. Tarihi Ana Kapı', latitude: 41.0119, longitude: 28.9639),
+          RouteWaypoint(order: 2, name: 'Merkez Kampüs Bahçesi', latitude: 41.0124, longitude: 28.9634),
+          RouteWaypoint(order: 3, name: 'Sahaflar & Kitabevi Sokağı', latitude: 41.0132, longitude: 28.9651),
+          RouteWaypoint(order: 4, name: 'Süleymaniye Külliyesi Avlusu', latitude: 41.0161, longitude: 28.9642),
+        ],
+      ),
+    ];
   }
 
   Future<void> _cacheCapsules(String rawJson) async {

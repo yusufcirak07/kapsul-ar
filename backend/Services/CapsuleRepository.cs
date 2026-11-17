@@ -13,6 +13,8 @@ public sealed class CapsuleRepository
     private sealed class PersistedState
     {
         public List<Capsule> Capsules { get; set; } = new();
+        public List<WalkingRoute> Routes { get; set; } = new();
+        public List<int> WellBeingScores { get; set; } = new();
         public int BlockedSpoofAttempts { get; set; } = 14;
         public int TotalSpoofChecks { get; set; } = 14;
         public int TotalStepsLogged { get; set; } = 4280;
@@ -221,6 +223,152 @@ public sealed class CapsuleRepository
         }
     }
 
+    public List<WalkingRoute> GetAllRoutes(double? lat = null, double? lon = null)
+    {
+        lock (_sync)
+        {
+            return _state.Routes.Select(r =>
+            {
+                double distFromUser = 0;
+                if (lat.HasValue && lon.HasValue && r.Waypoints.Count > 0)
+                {
+                    distFromUser = Math.Round(
+                        GeoMath.HaversineMeters(lat.Value, lon.Value, r.Waypoints[0].Latitude, r.Waypoints[0].Longitude) / 1000.0,
+                        2);
+                }
+
+                return new WalkingRoute
+                {
+                    Id = r.Id,
+                    Title = r.Title,
+                    Description = r.Description,
+                    CityDistrict = r.CityDistrict,
+                    RouteCategory = r.RouteCategory,
+                    Difficulty = r.Difficulty,
+                    SocialTag = r.SocialTag,
+                    IsRawPreset = r.IsRawPreset,
+                    CreatedBy = r.CreatedBy,
+                    CreatedAt = r.CreatedAt,
+                    DistanceKm = r.DistanceKm,
+                    EstimatedMinutes = r.EstimatedMinutes,
+                    EstimatedSteps = r.EstimatedSteps,
+                    AverageRating = r.AverageRating,
+                    RatingCount = r.RatingCount,
+                    CompletionCount = r.CompletionCount,
+                    DistanceFromUserKm = distFromUser,
+                    Waypoints = r.Waypoints,
+                    Ratings = r.Ratings.OrderByDescending(x => x.CreatedAt).ToList()
+                };
+            }).ToList();
+        }
+    }
+
+    public WalkingRoute CreateRoute(CreateRouteRequest req, string? overrideCategory = null)
+    {
+        lock (_sync)
+        {
+            var ordered = req.Waypoints
+                .Select((w, idx) => new RouteWaypoint
+                {
+                    Order = idx + 1,
+                    Name = string.IsNullOrWhiteSpace(w.Name) ? $"Durak {idx + 1}" : w.Name.Trim(),
+                    Latitude = w.Latitude,
+                    Longitude = w.Longitude,
+                    Hint = w.Hint?.Trim() ?? string.Empty
+                })
+                .ToList();
+
+            double totalMeters = ComputeRouteDistanceMeters(ordered);
+            double distKm = Math.Round(totalMeters / 1000.0, 2);
+            int estMinutes = Math.Max(5, (int)Math.Round((distKm / 4.2) * 60.0));
+            int estSteps = Math.Max(120, (int)Math.Round(totalMeters / 0.72));
+
+            var route = new WalkingRoute
+            {
+                Id = $"rt-{Guid.NewGuid():N}"[..10],
+                Title = req.Title.Trim(),
+                Description = string.IsNullOrWhiteSpace(req.Description)
+                    ? "Hareketsizliği azaltan ve sosyalleşmeyi teşvik eden topluluk yürüyüş rotası."
+                    : req.Description.Trim(),
+                CityDistrict = string.IsNullOrWhiteSpace(req.CityDistrict) ? "Yerel İlçe / Kampüs" : req.CityDistrict.Trim(),
+                RouteCategory = overrideCategory ?? (req.IsRawPreset ? "Ham Rota" : "Topluluk Rotası"),
+                Difficulty = string.IsNullOrWhiteSpace(req.Difficulty) ? "Kolay" : req.Difficulty.Trim(),
+                SocialTag = string.IsNullOrWhiteSpace(req.SocialTag) ? "Üni Öğrenci Buluşması" : req.SocialTag.Trim(),
+                IsRawPreset = req.IsRawPreset,
+                CreatedBy = string.IsNullOrWhiteSpace(req.CreatedBy) ? "Gezgin" : req.CreatedBy.Trim(),
+                CreatedAt = DateTimeOffset.UtcNow,
+                DistanceKm = distKm,
+                EstimatedMinutes = estMinutes,
+                EstimatedSteps = estSteps,
+                AverageRating = 0,
+                RatingCount = 0,
+                CompletionCount = 0,
+                Waypoints = ordered,
+                Ratings = new List<RouteRating>()
+            };
+
+            _state.Routes.Insert(0, route);
+            SaveLocked();
+            return route;
+        }
+    }
+
+    public WalkingRoute? RateRoute(string routeId, RateRouteRequest req)
+    {
+        lock (_sync)
+        {
+            var route = _state.Routes.FirstOrDefault(r => r.Id == routeId);
+            if (route is null) return null;
+
+            int stars = Math.Clamp(req.Stars, 1, 5);
+            int mood = Math.Clamp(req.MoodBoostScore, 1, 5);
+            route.Ratings.Insert(0, new RouteRating
+            {
+                Id = Guid.NewGuid().ToString("N")[..8],
+                UserName = string.IsNullOrWhiteSpace(req.UserName) ? "Gezgin" : req.UserName.Trim(),
+                Stars = stars,
+                Comment = req.Comment?.Trim() ?? string.Empty,
+                MoodBoostScore = mood,
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+
+            route.RatingCount = route.Ratings.Count;
+            route.AverageRating = Math.Round(route.Ratings.Average(x => x.Stars), 1);
+            _state.WellBeingScores.Add(mood);
+            SaveLocked();
+            return route;
+        }
+    }
+
+    public WalkingRoute? CompleteRoute(string routeId, int? moodBoostScore)
+    {
+        lock (_sync)
+        {
+            var route = _state.Routes.FirstOrDefault(r => r.Id == routeId);
+            if (route is null) return null;
+
+            route.CompletionCount++;
+            _state.TotalStepsLogged += route.EstimatedSteps;
+            _state.TotalDistanceMeters += route.DistanceKm * 1000.0;
+            if (moodBoostScore.HasValue)
+            {
+                _state.WellBeingScores.Add(Math.Clamp(moodBoostScore.Value, 1, 5));
+            }
+            SaveLocked();
+            return route;
+        }
+    }
+
+    public void RecordWellBeing(WellBeingCheckInRequest req)
+    {
+        lock (_sync)
+        {
+            int avg = (int)Math.Round((Math.Clamp(req.MoodScore, 1, 5) + Math.Clamp(req.SocialConnectedness, 1, 5)) / 2.0);
+            _state.WellBeingScores.Add(avg);
+            SaveLocked();
+        }
+    }
+
     public ExperimentSummary GetSummary()
     {
         lock (_sync)
@@ -239,6 +387,10 @@ public sealed class CapsuleRepository
                 ? Math.Round((double)_state.BlockedSpoofAttempts / _state.TotalSpoofChecks * 100.0, 1)
                 : 100.0;
 
+            double avgWellBeing = _state.WellBeingScores.Count > 0
+                ? Math.Round(_state.WellBeingScores.Average(), 2)
+                : 4.4;
+
             return new ExperimentSummary
             {
                 TotalCapsules = _state.Capsules.Count,
@@ -250,7 +402,11 @@ public sealed class CapsuleRepository
                 SusResponsesCount = _state.SusSubmissions.Count,
                 AverageSusScore = avgSus,
                 AverageTamUsefulness = avgPu,
-                AverageTamEaseOfUse = avgPeou
+                AverageTamEaseOfUse = avgPeou,
+                TotalRoutes = _state.Routes.Count,
+                TotalRouteCompletions = _state.Routes.Sum(r => r.CompletionCount),
+                TotalRouteRatings = _state.Routes.Sum(r => r.RatingCount),
+                AverageWellBeingScore = avgWellBeing
             };
         }
     }
@@ -277,7 +433,18 @@ public sealed class CapsuleRepository
                 var json = File.ReadAllText(_dataFilePath);
                 var loaded = JsonSerializer.Deserialize<PersistedState>(json);
                 if (loaded != null && loaded.Capsules.Count > 0)
+                {
+                    if (loaded.Routes.Count == 0)
+                    {
+                        loaded.Routes = CreateSeededRoutes();
+                        loaded.WellBeingScores = loaded.WellBeingScores.Count == 0
+                            ? new List<int> { 4, 5, 4, 5 }
+                            : loaded.WellBeingScores;
+                        _state = loaded;
+                        SaveLocked();
+                    }
                     return loaded;
+                }
             }
             catch
             {
@@ -429,6 +596,8 @@ public sealed class CapsuleRepository
         return new PersistedState
         {
             Capsules = capsules,
+            Routes = CreateSeededRoutes(),
+            WellBeingScores = new List<int> { 4, 5, 4, 5, 4 },
             SusSubmissions = new List<SusTamSubmission>
             {
                 new()
@@ -451,6 +620,138 @@ public sealed class CapsuleRepository
                 }
             }
         };
+    }
+
+    private static double ComputeRouteDistanceMeters(List<RouteWaypoint> waypoints)
+    {
+        double total = 0;
+        for (int i = 1; i < waypoints.Count; i++)
+        {
+            total += GeoMath.HaversineMeters(
+                waypoints[i - 1].Latitude,
+                waypoints[i - 1].Longitude,
+                waypoints[i].Latitude,
+                waypoints[i].Longitude);
+        }
+        return total;
+    }
+
+    private static List<WalkingRoute> CreateSeededRoutes()
+    {
+        var rawRoutes = new List<WalkingRoute>
+        {
+            new()
+            {
+                Id = "rt-likya",
+                Title = "Likya Yolu: Ovacık – Faralya – Kabak Ham Rotası",
+                Description = "Türkiye'nin en bilinen uzun mesafe yürüyüş parkurunun başlangıç etabını sunan ham GPS rotası. Doğa yürüyüşü grupları ve açık hava sosyalleşmesi için duraklı referans hat.",
+                CityDistrict = "Muğla / Fethiye",
+                RouteCategory = "Ham Rota",
+                Difficulty = "Orta",
+                SocialTag = "Doğa & Kültür Keşfi",
+                IsRawPreset = true,
+                CreatedBy = "Likya Ham Rota Arşivi",
+                CompletionCount = 34,
+                Waypoints = new List<RouteWaypoint>
+                {
+                    new() { Order = 1, Name = "Ovacık Likya Başlangıç Kapısı", Latitude = 36.5718, Longitude = 29.1536, Hint = "Sarı-kırmızı Likya işaretleme başlangıcı" },
+                    new() { Order = 2, Name = "Kozağaç Çeşmesi", Latitude = 36.5542, Longitude = 29.1465, Hint = "Orman içi gölgelik mola durağı" },
+                    new() { Order = 3, Name = "Kirme Köyü Sırtı", Latitude = 36.5356, Longitude = 29.1394, Hint = "Ölüdeniz panoramik seyir noktası" },
+                    new() { Order = 4, Name = "Faralya – Kelebekler Vadisi Üstü", Latitude = 36.4945, Longitude = 29.1328, Hint = "Kanyon seyir terası ve sosyalleşme molası" },
+                    new() { Order = 5, Name = "Kabak Koyu İniş Patikası", Latitude = 36.4648, Longitude = 29.1241, Hint = "Etap bitiş ve kamp alanı buluşma noktası" }
+                },
+                Ratings = new List<RouteRating>
+                {
+                    new() { UserName = "Zeynep K.", Stars = 5, MoodBoostScore = 5, Comment = "Ham duraklar net olduğu için yalnız gelenlerle Faralya'da yürüyüş grubu kurduk." },
+                    new() { UserName = "Emre T.", Stars = 5, MoodBoostScore = 4, Comment = "Özellikle gün batımı etabı çok motive edici, işaretler GPS ile uyumlu." }
+                }
+            },
+            new()
+            {
+                Id = "rt-frig",
+                Title = "Frig Vadisi: Ayazini – Emre Gölü Ham Rotası",
+                Description = "Küçük ilçe ve kırsal yerleşimlerdeki gençler ile halkın hafta sonu hareketsizliğini kırması için hazırlanan kaya anıtları ve göl kenarı yürüyüş hattı.",
+                CityDistrict = "Afyonkarahisar / İhsaniye",
+                RouteCategory = "Ham Rota",
+                Difficulty = "Kolay",
+                SocialTag = "Halk & Öğrenci Hafta Sonu",
+                IsRawPreset = true,
+                CreatedBy = "Anadolu Kültür Rotaları",
+                CompletionCount = 21,
+                Waypoints = new List<RouteWaypoint>
+                {
+                    new() { Order = 1, Name = "Ayazini Kaya Kilisesi", Latitude = 39.0928, Longitude = 30.4839, Hint = "Buluşma ve ısınma yürüyüşü başlangıcı" },
+                    new() { Order = 2, Name = "Ayazini Kaya Mezarları", Latitude = 39.0956, Longitude = 30.4892, Hint = "Tarihi fotoğraf kapsülü noktası" },
+                    new() { Order = 3, Name = "Avdalaz Kalesi Seyir", Latitude = 39.0998, Longitude = 30.4945, Hint = "Kısa soluklanma ve manzara durağı" },
+                    new() { Order = 4, Name = "Emre Gölü Yürüyüş Kıyısı", Latitude = 39.1086, Longitude = 30.5062, Hint = "Göl çevresi yürüyüş ve sohbet alanı" }
+                },
+                Ratings = new List<RouteRating>
+                {
+                    new() { UserName = "Mert A.", Stars = 5, MoodBoostScore = 5, Comment = "İlçede yapacak bir şey yok sanıyorduk, öğrenci topluluğuyla 4 kişi tamamladık." }
+                }
+            },
+            new()
+            {
+                Id = "rt-oltu",
+                Title = "Küçük İlçe Keşif: Oltu Kalesi – Çoruh Kenarı Öğrenci Hattı",
+                Description = "Küçük ilçede okuyan üniversite öğrencilerinin kampüs dışına çıkıp sosyalleşemediği alanları canlandıran güvenli akşamüstü yürüyüş rotası.",
+                CityDistrict = "Erzurum / Oltu",
+                RouteCategory = "Ham Rota",
+                Difficulty = "Kolay",
+                SocialTag = "Üni Öğrenci Buluşması",
+                IsRawPreset = true,
+                CreatedBy = "İlçe Gençlik Yürüyüşü",
+                CompletionCount = 19,
+                Waypoints = new List<RouteWaypoint>
+                {
+                    new() { Order = 1, Name = "Oltu Kampüs / MYO Çıkışı", Latitude = 40.5468, Longitude = 41.9942, Hint = "Öğrenci buluşma başlangıcı" },
+                    new() { Order = 2, Name = "Oltu Kalesi Çevresi", Latitude = 40.5495, Longitude = 41.9963, Hint = "Tarihi kale etrafı hafif tempo" },
+                    new() { Order = 3, Name = "Kültür Parkı & Kütüphane Önü", Latitude = 40.5512, Longitude = 41.9990, Hint = "Çay molası ve sosyalleşme noktası" },
+                    new() { Order = 4, Name = "Oltu Çayı Yürüyüş Bandı", Latitude = 40.5477, Longitude = 42.0028, Hint = "Akşamüstü nehir kenarı bitiş" }
+                },
+                Ratings = new List<RouteRating>
+                {
+                    new() { UserName = "Sena D.", Stars = 4, MoodBoostScore = 5, Comment = "Yurttan çıkıp yürümek için bahane oldu, parkta yeni arkadaşlarla tanıştık." }
+                }
+            },
+            new()
+            {
+                Id = "rt-beyazit",
+                Title = "Beyazıt – Süleymaniye Sosyal & Kültür Yürüyüşü",
+                Description = "Kampüs içinde hareketsiz kalan öğrenciler için tarihi durakları ve kitapçı kafeleri bağlayan düşük eğimli sosyalleşme rotası.",
+                CityDistrict = "İstanbul / Fatih",
+                RouteCategory = "Topluluk Rotası",
+                Difficulty = "Kolay",
+                SocialTag = "Üni Öğrenci Buluşması",
+                IsRawPreset = false,
+                CreatedBy = "SOY Tech Keşif Ekibi",
+                CompletionCount = 46,
+                Waypoints = new List<RouteWaypoint>
+                {
+                    new() { Order = 1, Name = "İ.Ü. Tarihi Ana Kapı", Latitude = 41.0119, Longitude = 28.9639, Hint = "Meydan girişi buluşma noktası" },
+                    new() { Order = 2, Name = "Merkez Kampüs Bahçesi", Latitude = 41.0124, Longitude = 28.9634, Hint = "Çınar altı piksel kapsül durağı" },
+                    new() { Order = 3, Name = "Sahaflar & Kitabevi Sokağı", Latitude = 41.0132, Longitude = 28.9651, Hint = "Kahve ve kitap sohbeti molası" },
+                    new() { Order = 4, Name = "Süleymaniye Külliyesi Avlusu", Latitude = 41.0161, Longitude = 28.9642, Hint = "Haliç manzaralı rota bitişi" }
+                },
+                Ratings = new List<RouteRating>
+                {
+                    new() { UserName = "Ozan H.", Stars = 5, MoodBoostScore = 5, Comment = "Ders arası 15 dakikalık yürüyüş zihnimi açtı." },
+                    new() { UserName = "Semih B.", Stars = 4, MoodBoostScore = 4, Comment = "Kapsüllerle birleşince rota çok daha eğlenceli oluyor." }
+                }
+            }
+        };
+
+        foreach (var r in rawRoutes)
+        {
+            double meters = ComputeRouteDistanceMeters(r.Waypoints);
+            r.DistanceKm = Math.Round(meters / 1000.0, 2);
+            r.EstimatedMinutes = Math.Max(8, (int)Math.Round((r.DistanceKm / 4.2) * 60.0));
+            r.EstimatedSteps = Math.Max(200, (int)Math.Round(meters / 0.72));
+            r.RatingCount = r.Ratings.Count;
+            r.AverageRating = r.Ratings.Count > 0 ? Math.Round(r.Ratings.Average(x => x.Stars), 1) : 0;
+        }
+
+        return rawRoutes;
     }
 
     private static List<int> CreateSamplePixelArt()

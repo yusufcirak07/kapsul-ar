@@ -182,6 +182,86 @@ public sealed class ExperimentSummary
     public double AverageSusScore { get; set; }
     public double AverageTamUsefulness { get; set; }
     public double AverageTamEaseOfUse { get; set; }
+    public int TotalRoutes { get; set; }
+    public int TotalRouteCompletions { get; set; }
+    public int TotalRouteRatings { get; set; }
+    public double AverageWellBeingScore { get; set; }
+}
+
+public sealed class RouteWaypoint
+{
+    public int Order { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+    public string Hint { get; set; } = string.Empty;
+}
+
+public sealed class RouteRating
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+    public string UserName { get; set; } = "Gezgin";
+    public int Stars { get; set; } = 5;
+    public string Comment { get; set; } = string.Empty;
+    public int MoodBoostScore { get; set; } = 5; // 1-5: Yürüyüş sonrası motivasyon / sosyalleşme iyi oluşu
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+}
+
+public sealed class WalkingRoute
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..10];
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string CityDistrict { get; set; } = string.Empty;
+    public string RouteCategory { get; set; } = "Topluluk Rotası"; // Ham Rota | Topluluk Rotası | Otomatik Çevre Rotası
+    public string Difficulty { get; set; } = "Kolay"; // Kolay | Orta | Zor
+    public string SocialTag { get; set; } = "Üni Öğrenci Buluşması";
+    public bool IsRawPreset { get; set; }
+    public string CreatedBy { get; set; } = "Gezgin";
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public double DistanceKm { get; set; }
+    public int EstimatedMinutes { get; set; }
+    public int EstimatedSteps { get; set; }
+    public double AverageRating { get; set; }
+    public int RatingCount { get; set; }
+    public int CompletionCount { get; set; }
+    public double DistanceFromUserKm { get; set; }
+    public List<RouteWaypoint> Waypoints { get; set; } = new();
+    public List<RouteRating> Ratings { get; set; } = new();
+}
+
+public sealed class CreateRouteRequest
+{
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string CityDistrict { get; set; } = string.Empty;
+    public string Difficulty { get; set; } = "Kolay";
+    public string SocialTag { get; set; } = "Üni Öğrenci Buluşması";
+    public bool IsRawPreset { get; set; }
+    public string CreatedBy { get; set; } = "Gezgin";
+    public List<RouteWaypoint> Waypoints { get; set; } = new();
+}
+
+public sealed class RateRouteRequest
+{
+    public string UserName { get; set; } = "Gezgin";
+    public int Stars { get; set; } = 5;
+    public string Comment { get; set; } = string.Empty;
+    public int MoodBoostScore { get; set; } = 5;
+}
+
+public sealed class CompleteRouteRequest
+{
+    public string UserId { get; set; } = "demo-user";
+    public int? MoodBoostScore { get; set; }
+}
+
+public sealed class WellBeingCheckInRequest
+{
+    public string UserId { get; set; } = "demo-user";
+    public int MoodScore { get; set; } = 4; // 1-5: Hareketsizlik & umutsuzluk azalması / enerji
+    public int SocialConnectedness { get; set; } = 4; // 1-5: Sosyalleşme isteği / bağ kurma
+    public string? RouteId { get; set; }
 }
 
 public sealed class NearbyMediaItem

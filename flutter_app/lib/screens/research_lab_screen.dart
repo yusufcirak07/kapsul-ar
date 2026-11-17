@@ -191,6 +191,9 @@ class _ResearchLabScreenState extends State<ResearchLabScreen> {
             children: [
               _statBox('Kapsül', '${s.totalCapsules}'),
               _statBox('Açılma', '${s.totalUnlocks}'),
+              _statBox('Rota', '${s.totalRoutes}'),
+              _statBox('Rota Yürüyüşü', '${s.totalRouteCompletions}'),
+              _statBox('Ort. İyi Oluş', '${s.averageWellBeingScore}/5'),
               _statBox('Spoof Engel', '%${s.spoofBlockRatePercent}'),
               _statBox('Ort. SUS', '${s.averageSusScore}'),
             ],

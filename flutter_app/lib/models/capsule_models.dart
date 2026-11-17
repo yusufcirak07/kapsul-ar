@@ -364,6 +364,10 @@ class ExperimentSummary {
   final double averageSusScore;
   final double averageTamUsefulness;
   final double averageTamEaseOfUse;
+  final int totalRoutes;
+  final int totalRouteCompletions;
+  final int totalRouteRatings;
+  final double averageWellBeingScore;
 
   const ExperimentSummary({
     required this.totalCapsules,
@@ -376,6 +380,10 @@ class ExperimentSummary {
     required this.averageSusScore,
     required this.averageTamUsefulness,
     required this.averageTamEaseOfUse,
+    this.totalRoutes = 4,
+    this.totalRouteCompletions = 120,
+    this.totalRouteRatings = 6,
+    this.averageWellBeingScore = 4.4,
   });
 
   factory ExperimentSummary.fromJson(Map<String, dynamic> json) {
@@ -390,8 +398,178 @@ class ExperimentSummary {
       averageSusScore: (json['averageSusScore'] as num?)?.toDouble() ?? 82.5,
       averageTamUsefulness: (json['averageTamUsefulness'] as num?)?.toDouble() ?? 4.35,
       averageTamEaseOfUse: (json['averageTamEaseOfUse'] as num?)?.toDouble() ?? 4.48,
+      totalRoutes: (json['totalRoutes'] as num?)?.toInt() ?? 4,
+      totalRouteCompletions: (json['totalRouteCompletions'] as num?)?.toInt() ?? 0,
+      totalRouteRatings: (json['totalRouteRatings'] as num?)?.toInt() ?? 0,
+      averageWellBeingScore: (json['averageWellBeingScore'] as num?)?.toDouble() ?? 4.4,
     );
   }
+}
+
+class RouteWaypoint {
+  final int order;
+  final String name;
+  final double latitude;
+  final double longitude;
+  final String hint;
+
+  const RouteWaypoint({
+    required this.order,
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+    this.hint = '',
+  });
+
+  factory RouteWaypoint.fromJson(Map<String, dynamic> json) {
+    return RouteWaypoint(
+      order: (json['order'] as num?)?.toInt() ?? 1,
+      name: (json['name'] ?? '').toString(),
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 41.0121,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 28.9637,
+      hint: (json['hint'] ?? '').toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'order': order,
+        'name': name,
+        'latitude': latitude,
+        'longitude': longitude,
+        'hint': hint,
+      };
+}
+
+class RouteRating {
+  final String id;
+  final String userName;
+  final int stars;
+  final String comment;
+  final int moodBoostScore;
+  final DateTime createdAt;
+
+  const RouteRating({
+    required this.id,
+    required this.userName,
+    required this.stars,
+    required this.comment,
+    this.moodBoostScore = 5,
+    required this.createdAt,
+  });
+
+  factory RouteRating.fromJson(Map<String, dynamic> json) {
+    return RouteRating(
+      id: (json['id'] ?? '').toString(),
+      userName: (json['userName'] ?? 'Gezgin').toString(),
+      stars: (json['stars'] as num?)?.toInt() ?? 5,
+      comment: (json['comment'] ?? '').toString(),
+      moodBoostScore: (json['moodBoostScore'] as num?)?.toInt() ?? 5,
+      createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString()) ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'userName': userName,
+        'stars': stars,
+        'comment': comment,
+        'moodBoostScore': moodBoostScore,
+        'createdAt': createdAt.toIso8601String(),
+      };
+}
+
+class WalkingRoute {
+  final String id;
+  final String title;
+  final String description;
+  final String cityDistrict;
+  final String routeCategory; // Ham Rota | Topluluk Rotası | Otomatik Çevre Rotası
+  final String difficulty; // Kolay | Orta | Zor
+  final String socialTag;
+  final bool isRawPreset;
+  final String createdBy;
+  final DateTime createdAt;
+  final double distanceKm;
+  final int estimatedMinutes;
+  final int estimatedSteps;
+  final double averageRating;
+  final int ratingCount;
+  final int completionCount;
+  final double distanceFromUserKm;
+  final List<RouteWaypoint> waypoints;
+  final List<RouteRating> ratings;
+
+  const WalkingRoute({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.cityDistrict,
+    required this.routeCategory,
+    required this.difficulty,
+    required this.socialTag,
+    required this.isRawPreset,
+    required this.createdBy,
+    required this.createdAt,
+    required this.distanceKm,
+    required this.estimatedMinutes,
+    required this.estimatedSteps,
+    required this.averageRating,
+    required this.ratingCount,
+    required this.completionCount,
+    this.distanceFromUserKm = 0,
+    required this.waypoints,
+    this.ratings = const [],
+  });
+
+  factory WalkingRoute.fromJson(Map<String, dynamic> json) {
+    return WalkingRoute(
+      id: (json['id'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      cityDistrict: (json['cityDistrict'] ?? 'Yerel İlçe').toString(),
+      routeCategory: (json['routeCategory'] ?? 'Topluluk Rotası').toString(),
+      difficulty: (json['difficulty'] ?? 'Kolay').toString(),
+      socialTag: (json['socialTag'] ?? 'Üni Öğrenci Buluşması').toString(),
+      isRawPreset: (json['isRawPreset'] as bool?) ?? false,
+      createdBy: (json['createdBy'] ?? 'Gezgin').toString(),
+      createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString()) ?? DateTime.now(),
+      distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 0,
+      estimatedMinutes: (json['estimatedMinutes'] as num?)?.toInt() ?? 15,
+      estimatedSteps: (json['estimatedSteps'] as num?)?.toInt() ?? 1500,
+      averageRating: (json['averageRating'] as num?)?.toDouble() ?? 0,
+      ratingCount: (json['ratingCount'] as num?)?.toInt() ?? 0,
+      completionCount: (json['completionCount'] as num?)?.toInt() ?? 0,
+      distanceFromUserKm: (json['distanceFromUserKm'] as num?)?.toDouble() ?? 0,
+      waypoints: ((json['waypoints'] as List?) ?? [])
+          .map((e) => RouteWaypoint.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      ratings: ((json['ratings'] as List?) ?? [])
+          .map((e) => RouteRating.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'description': description,
+        'cityDistrict': cityDistrict,
+        'routeCategory': routeCategory,
+        'difficulty': difficulty,
+        'socialTag': socialTag,
+        'isRawPreset': isRawPreset,
+        'createdBy': createdBy,
+        'createdAt': createdAt.toIso8601String(),
+        'distanceKm': distanceKm,
+        'estimatedMinutes': estimatedMinutes,
+        'estimatedSteps': estimatedSteps,
+        'averageRating': averageRating,
+        'ratingCount': ratingCount,
+        'completionCount': completionCount,
+        'distanceFromUserKm': distanceFromUserKm,
+        'waypoints': waypoints.map((w) => w.toJson()).toList(),
+        'ratings': ratings.map((r) => r.toJson()).toList(),
+      };
 }
 
 class NearbyMediaItem {

@@ -10,20 +10,25 @@ import '../models/capsule_models.dart';
 import '../services/api_client.dart';
 import '../services/location_sensor_service.dart';
 import '../widgets/capsule_card.dart';
+import '../widgets/route_detail_sheet.dart';
 import '../widgets/story_strip.dart';
 import 'ar_unlock_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
   final ApiClient api;
   final LocationSensorService locationService;
+  final ThemeController themeController;
   final VoidCallback onGoToCreate;
+  final VoidCallback? onGoToCreateRoute;
   final ValueChanged<NearbyMediaItem>? onCreateAtPlace;
 
   const ExploreScreen({
     super.key,
     required this.api,
     required this.locationService,
+    required this.themeController,
     required this.onGoToCreate,
+    this.onGoToCreateRoute,
     this.onCreateAtPlace,
   });
 
@@ -35,8 +40,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final MapController _mapController = MapController();
   List<TimeCapsule> _capsules = [];
   List<NearbyMediaItem> _popularPlaces = [];
+  List<WalkingRoute> _routes = [];
+  WalkingRoute? _selectedRoute;
   String _selectedCategory = 'Tümü';
+  String _routeFilter = 'Tümü'; // Tümü | Ham Rota | Topluluk
   bool _loading = true;
+  bool _suggestingRoute = false;
   DateTime _lastFetch = DateTime.fromMillisecondsSinceEpoch(0);
   int _lastFixSeq = -1;
   double _lastQueryLat = 0;
@@ -129,14 +138,91 @@ class _ExploreScreenState extends State<ExploreScreen> {
         lat: widget.locationService.latitude,
         lon: widget.locationService.longitude,
       ),
+      widget.api.fetchRoutes(
+        lat: widget.locationService.latitude,
+        lon: widget.locationService.longitude,
+      ),
     ]);
 
     if (!mounted) return;
+    final loadedRoutes = results[2] as List<WalkingRoute>;
     setState(() {
       _capsules = results[0] as List<TimeCapsule>;
       _popularPlaces = results[1] as List<NearbyMediaItem>;
+      _routes = loadedRoutes;
+      if (_selectedRoute == null && loadedRoutes.isNotEmpty) {
+        _selectedRoute = loadedRoutes.firstWhere(
+          (r) => r.id == 'rt-beyazit',
+          orElse: () => loadedRoutes.first,
+        );
+      } else if (_selectedRoute != null) {
+        final match = loadedRoutes.where((r) => r.id == _selectedRoute!.id).toList();
+        if (match.isNotEmpty) _selectedRoute = match.first;
+      }
       _loading = false;
     });
+  }
+
+  Future<void> _suggestLocalRoute() async {
+    setState(() => _suggestingRoute = true);
+    final suggested = await widget.api.suggestLocalRoute(
+      lat: widget.locationService.latitude,
+      lon: widget.locationService.longitude,
+      nearbyPlaces: _popularPlaces,
+    );
+    if (!mounted) return;
+    setState(() {
+      _suggestingRoute = false;
+      _routes = [suggested, ..._routes.where((r) => r.id != suggested.id)];
+      _selectedRoute = suggested;
+    });
+    if (suggested.waypoints.isNotEmpty) {
+      _mapController.move(
+        LatLng(suggested.waypoints.first.latitude, suggested.waypoints.first.longitude),
+        15.4,
+      );
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Konumunuza özel "${suggested.title}" oluşturuldu!'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _focusAndOpenRoute(WalkingRoute route) {
+    setState(() => _selectedRoute = route);
+    if (route.waypoints.isNotEmpty) {
+      final first = route.waypoints.first;
+      _mapController.move(LatLng(first.latitude, first.longitude), route.distanceKm > 5 ? 12.5 : 15.2);
+    }
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => RouteDetailSheet(
+        route: route,
+        api: widget.api,
+        locationService: widget.locationService,
+        userName: widget.themeController.displayName,
+        onWalkToStart: () {
+          if (route.waypoints.isNotEmpty) {
+            _startWalkTo(
+              route.waypoints.first.latitude,
+              route.waypoints.first.longitude,
+              route.waypoints.first.name,
+            );
+          }
+        },
+        onRouteUpdated: (updated) {
+          if (!mounted) return;
+          setState(() {
+            _selectedRoute = updated;
+            _routes = _routes.map((r) => r.id == updated.id ? updated : r).toList();
+          });
+        },
+      ),
+    );
   }
 
   void _openArScreen(TimeCapsule capsule) async {
@@ -359,6 +445,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
+  List<WalkingRoute> get _filteredRoutes {
+    if (_routeFilter == 'Ham Rota') {
+      return _routes.where((r) => r.isRawPreset || r.routeCategory == 'Ham Rota').toList();
+    }
+    if (_routeFilter == 'Topluluk') {
+      return _routes.where((r) => !r.isRawPreset).toList();
+    }
+    return _routes;
+  }
+
   @override
   void dispose() {
     widget.locationService.removeListener(_onLocationChanged);
@@ -513,8 +609,45 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             )),
                       ],
                     ),
+                    if (_selectedRoute != null && _selectedRoute!.waypoints.length >= 2)
+                      PolylineLayer(
+                        polylines: [
+                          Polyline(
+                            points: _selectedRoute!.waypoints
+                                .map((w) => LatLng(w.latitude, w.longitude))
+                                .toList(),
+                            strokeWidth: 4.5,
+                            color: p.accentSecondary,
+                          ),
+                        ],
+                      ),
                     MarkerLayer(
                       markers: [
+                        if (_selectedRoute != null)
+                          ..._selectedRoute!.waypoints.map((w) => Marker(
+                                point: LatLng(w.latitude, w.longitude),
+                                width: 28,
+                                height: 28,
+                                child: GestureDetector(
+                                  onTap: () => _focusAndOpenRoute(_selectedRoute!),
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: p.accentSecondary,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2),
+                                    ),
+                                    child: Text(
+                                      '${w.order}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              )),
                         // Çevredeki Popüler Yerler (Altın Yıldız İkonları)
                         ..._popularPlaces
                             .where((poi) => poi.latitude != null && poi.longitude != null)
@@ -705,6 +838,204 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(14, 18, 14, 108),
                       children: [
+                        // Yürüyüş & Sosyalleşme Rotaları (Ham Rotalar + 0'dan Rotalar + Otomatik Öneri)
+                        Row(
+                          children: [
+                            Icon(Icons.route_rounded, size: 17, color: p.accentSecondary),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Yürüyüş & Sosyalleşme Rotaları',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: p.textPrimary,
+                                ),
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: _suggestingRoute ? null : _suggestLocalRoute,
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              icon: _suggestingRoute
+                                  ? const SizedBox(
+                                      width: 12,
+                                      height: 12,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : Icon(Icons.auto_awesome_rounded, size: 14, color: p.accentSecondary),
+                              label: Text(
+                                'Rota Öner',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: p.accentSecondary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            if (widget.onGoToCreateRoute != null)
+                              TextButton.icon(
+                                onPressed: widget.onGoToCreateRoute,
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                icon: Icon(Icons.add_road_rounded, size: 14, color: p.accentPrimary),
+                                label: Text(
+                                  '0\'dan Çiz',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: p.accentPrimary,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        SizedBox(
+                          height: 30,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: ['Tümü', 'Ham Rota', 'Topluluk'].map((f) {
+                              final sel = _routeFilter == f;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: ChoiceChip(
+                                  label: Text(
+                                    f,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: sel ? Colors.white : p.textPrimary,
+                                    ),
+                                  ),
+                                  selected: sel,
+                                  showCheckmark: false,
+                                  selectedColor: p.accentSecondary,
+                                  backgroundColor: p.surface,
+                                  side: BorderSide(color: sel ? p.accentSecondary : p.border),
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                                  onSelected: (_) => setState(() => _routeFilter = f),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 138,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _filteredRoutes.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 10),
+                            itemBuilder: (_, idx) {
+                              final route = _filteredRoutes[idx];
+                              final selected = _selectedRoute?.id == route.id;
+                              return GestureDetector(
+                                onTap: () => _focusAndOpenRoute(route),
+                                child: Container(
+                                  width: 248,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: p.surface,
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(
+                                      color: selected ? p.accentSecondary : p.border,
+                                      width: selected ? 1.8 : 1,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: (route.isRawPreset
+                                                      ? p.accentAmber
+                                                      : p.accentSecondary)
+                                                  .withValues(alpha: 0.14),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              route.routeCategory,
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w700,
+                                                color: route.isRawPreset
+                                                    ? p.accentAmber
+                                                    : p.accentSecondary,
+                                              ),
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Icon(Icons.star_rounded, size: 14, color: p.accentAmber),
+                                          const SizedBox(width: 2),
+                                          Text(
+                                            route.ratingCount > 0
+                                                ? '${route.averageRating} (${route.ratingCount})'
+                                                : 'Yeni',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: p.textPrimary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        route.title,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: p.textPrimary,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Text(
+                                        '${route.cityDistrict} • ${route.socialTag}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 10.5, color: p.textSecondary),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '${route.distanceKm.toStringAsFixed(1)} km • ${route.estimatedMinutes} dk',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: p.accentPrimary,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Text(
+                                            '${route.completionCount} yürüyüş',
+                                            style: TextStyle(fontSize: 10.5, color: p.textSecondary),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
                         if (_popularPlaces.isNotEmpty) ...[
                           Row(
                             children: [

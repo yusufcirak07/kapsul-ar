@@ -6,6 +6,7 @@ import '../services/api_client.dart';
 import '../services/location_sensor_service.dart';
 import '../widgets/audio_note_widget.dart';
 import '../widgets/pixel_art_editor.dart';
+import '../widgets/route_builder_panel.dart';
 import 'ar_seal_screen.dart';
 
 class CreateCapsuleScreen extends StatefulWidget {
@@ -13,7 +14,9 @@ class CreateCapsuleScreen extends StatefulWidget {
   final LocationSensorService locationService;
   final ThemeController themeController;
   final NearbyMediaItem? prefilledPlace;
+  final bool initialRouteMode;
   final VoidCallback onCreated;
+  final ValueChanged<WalkingRoute>? onRouteCreated;
 
   const CreateCapsuleScreen({
     super.key,
@@ -21,7 +24,9 @@ class CreateCapsuleScreen extends StatefulWidget {
     required this.locationService,
     required this.themeController,
     this.prefilledPlace,
+    this.initialRouteMode = false,
     required this.onCreated,
+    this.onRouteCreated,
   });
 
   @override
@@ -40,6 +45,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
   bool _isEncrypted = true;
   bool _submitting = false;
   bool _loadingMedia = false;
+  bool _routeMode = false;
   ArSealResult? _arSeal;
 
   List<NearbyMediaItem> _mediaSuggestions = [];
@@ -51,6 +57,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
   @override
   void initState() {
     super.initState();
+    _routeMode = widget.initialRouteMode;
     _unlockRadius = widget.themeController.defaultRadius;
     _applyPrefilledPlace();
     _loadMediaSuggestions();
@@ -59,7 +66,11 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
   @override
   void didUpdateWidget(covariant CreateCapsuleScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.initialRouteMode != oldWidget.initialRouteMode) {
+      _routeMode = widget.initialRouteMode;
+    }
     if (widget.prefilledPlace != oldWidget.prefilledPlace && widget.prefilledPlace != null) {
+      _routeMode = false;
       _applyPrefilledPlace();
     }
   }
@@ -197,14 +208,83 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Zaman Kapsülü Bırak',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: p.textPrimary,
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: p.surface,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: p.border),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _routeMode = false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: !_routeMode ? p.accentPrimary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Zaman Kapsülü',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: !_routeMode ? Colors.white : p.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _routeMode = true),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _routeMode ? p.accentSecondary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '0\'dan Rota Oluştur',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: _routeMode ? Colors.white : p.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(height: 14),
+          if (_routeMode)
+            RouteBuilderPanel(
+              api: widget.api,
+              locationService: widget.locationService,
+              themeController: widget.themeController,
+              onRouteCreated: (route) {
+                if (widget.onRouteCreated != null) {
+                  widget.onRouteCreated!(route);
+                } else {
+                  widget.onCreated();
+                }
+              },
+            )
+          else ...[
+            Text(
+              'Zaman Kapsülü Bırak',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: p.textPrimary,
+              ),
+            ),
           const SizedBox(height: 4),
           Text(
             'Bulunduğunuz noktaya (${loc.latitude.toStringAsFixed(4)}, ${loc.longitude.toStringAsFixed(4)}) dijital bir iz bırakın.',
@@ -519,6 +599,7 @@ class _CreateCapsuleScreenState extends State<CreateCapsuleScreen> {
               ),
             ),
           ),
+          ],
         ],
       ),
     );

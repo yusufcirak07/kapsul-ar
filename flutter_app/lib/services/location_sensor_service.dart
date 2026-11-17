@@ -34,6 +34,8 @@ class LocationSensorService extends ChangeNotifier {
   int _stepsToday = 1420;
   double _distanceMetersToday = 980.0;
   final Set<String> _unlockedIds = {};
+  final Set<String> _completedRouteIds = {};
+  final List<int> _wellBeingScores = [];
 
   final List<TelemetrySample> _telemetryWindow = [];
   Timer? _sampleTimer;
@@ -62,6 +64,11 @@ class LocationSensorService extends ChangeNotifier {
   int get stepsToday => _stepsToday;
   double get distanceMetersToday => _distanceMetersToday;
   Set<String> get unlockedIds => Set.unmodifiable(_unlockedIds);
+  Set<String> get completedRouteIds => Set.unmodifiable(_completedRouteIds);
+  List<int> get wellBeingScores => List.unmodifiable(_wellBeingScores);
+  double get averageWellBeing => _wellBeingScores.isEmpty
+      ? 0.0
+      : _wellBeingScores.reduce((a, b) => a + b) / _wellBeingScores.length;
   List<TelemetrySample> get telemetryWindow => List.unmodifiable(_telemetryWindow);
 
   double get currentAccelMagnitude => sqrt(_ax * _ax + _ay * _ay + _az * _az);
@@ -89,6 +96,13 @@ class LocationSensorService extends ChangeNotifier {
     _distanceMetersToday = prefs.getDouble('distance_today') ?? 980.0;
     final saved = prefs.getStringList('unlocked_ids') ?? [];
     _unlockedIds.addAll(saved);
+    final savedRoutes = prefs.getStringList('completed_route_ids') ?? [];
+    _completedRouteIds.addAll(savedRoutes);
+    final savedWb = prefs.getStringList('wellbeing_scores') ?? [];
+    for (final item in savedWb) {
+      final parsed = int.tryParse(item);
+      if (parsed != null) _wellBeingScores.add(parsed);
+    }
     notifyListeners();
   }
 
@@ -96,6 +110,38 @@ class LocationSensorService extends ChangeNotifier {
     _unlockedIds.add(id);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('unlocked_ids', _unlockedIds.toList());
+    notifyListeners();
+  }
+
+  Future<void> markRouteCompleted({
+    required String routeId,
+    required int stepsEarned,
+    required double distanceMetersEarned,
+    int? moodBoostScore,
+  }) async {
+    _completedRouteIds.add(routeId);
+    if (stepsEarned > 0) _stepsToday += stepsEarned;
+    if (distanceMetersEarned > 0) _distanceMetersToday += distanceMetersEarned;
+    if (moodBoostScore != null) {
+      _wellBeingScores.add(moodBoostScore.clamp(1, 5));
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('completed_route_ids', _completedRouteIds.toList());
+    await prefs.setStringList(
+      'wellbeing_scores',
+      _wellBeingScores.map((e) => e.toString()).toList(),
+    );
+    await _saveStats();
+    notifyListeners();
+  }
+
+  Future<void> recordWellBeing(int score) async {
+    _wellBeingScores.add(score.clamp(1, 5));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      'wellbeing_scores',
+      _wellBeingScores.map((e) => e.toString()).toList(),
+    );
     notifyListeners();
   }
 

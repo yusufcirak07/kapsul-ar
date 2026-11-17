@@ -37,7 +37,13 @@ app.MapGet("/", () => Results.Ok(new
         "GET /api/media/nearby?lat=41.0122&lon=28.9635&q=istanbul",
         "POST /api/activity",
         "GET /api/experiments/summary",
-        "POST /api/experiments/sus-tam"
+        "POST /api/experiments/sus-tam",
+        "GET /api/routes?lat=41.0122&lon=28.9635",
+        "GET /api/routes/suggest?lat=41.0122&lon=28.9635",
+        "POST /api/routes",
+        "POST /api/routes/{id}/rate",
+        "POST /api/routes/{id}/complete",
+        "POST /api/experiments/wellbeing"
     }
 }));
 
@@ -355,6 +361,141 @@ app.MapPost("/api/experiments/sus-tam", (SusTamSubmission sub, CapsuleRepository
         passedTarget75 = susScore >= 75.0,
         summary = repo.GetSummary()
     });
+});
+
+app.MapGet("/api/routes", (double? lat, double? lon, CapsuleRepository repo) =>
+{
+    return Results.Ok(repo.GetAllRoutes(lat, lon));
+});
+
+app.MapPost("/api/routes", (CreateRouteRequest req, CapsuleRepository repo) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Title))
+        return Results.BadRequest(new { message = "Rota başlığı zorunludur." });
+    if (req.Waypoints == null || req.Waypoints.Count < 2)
+        return Results.BadRequest(new { message = "Bir yürüyüş rotası için en az 2 durak noktası eklenmelidir." });
+
+    var created = repo.CreateRoute(req);
+    return Results.Created($"/api/routes/{created.Id}", created);
+});
+
+app.MapPost("/api/routes/{id}/rate", (string id, RateRouteRequest req, CapsuleRepository repo) =>
+{
+    var updated = repo.RateRoute(id, req);
+    return updated is null
+        ? Results.NotFound(new { message = "Rota bulunamadı." })
+        : Results.Ok(updated);
+});
+
+app.MapPost("/api/routes/{id}/complete", (string id, CompleteRouteRequest? req, CapsuleRepository repo) =>
+{
+    var updated = repo.CompleteRoute(id, req?.MoodBoostScore);
+    return updated is null
+        ? Results.NotFound(new { message = "Rota bulunamadı." })
+        : Results.Ok(new
+        {
+            route = updated,
+            summary = repo.GetSummary()
+        });
+});
+
+app.MapGet("/api/routes/suggest", async (
+    double? lat,
+    double? lon,
+    string? cityDistrict,
+    WikimediaMediaService media,
+    CapsuleRepository repo,
+    CancellationToken ct) =>
+{
+    double qLat = lat ?? 41.0122;
+    double qLon = lon ?? 28.9635;
+    var places = await media.GetNearbyPopularPlacesAsync(qLat, qLon, ct);
+
+    var waypoints = new List<RouteWaypoint>
+    {
+        new()
+        {
+            Order = 1,
+            Name = "Başlangıç Konumunuz",
+            Latitude = qLat,
+            Longitude = qLon,
+            Hint = "Bulunduğunuz noktadan yürüyüşe başlayın"
+        }
+    };
+
+    var selectedPlaces = places
+        .Where(p => p.Latitude.HasValue && p.Longitude.HasValue)
+        .Where(p => GeoMath.HaversineMeters(qLat, qLon, p.Latitude!.Value, p.Longitude!.Value) is >= 40 and <= 2500)
+        .Take(3)
+        .ToList();
+
+    if (selectedPlaces.Count >= 2)
+    {
+        int order = 2;
+        foreach (var place in selectedPlaces)
+        {
+            waypoints.Add(new RouteWaypoint
+            {
+                Order = order++,
+                Name = place.Title,
+                Latitude = place.Latitude!.Value,
+                Longitude = place.Longitude!.Value,
+                Hint = place.Description
+            });
+        }
+    }
+    else
+    {
+        // Küçük ilçe veya veri seyrek alanlarda yakında güvenli 1.2 km'lik yerel yürüyüş halkası oluştur
+        double cosLat = Math.Max(Math.Cos(qLat * Math.PI / 180.0), 0.1);
+        double dLat(double m) => m / 111320.0;
+        double dLon(double m) => m / (111320.0 * cosLat);
+
+        waypoints.Add(new RouteWaypoint
+        {
+            Order = 2,
+            Name = "Mahalle / Kampüs Park Durağı",
+            Latitude = qLat + dLat(260),
+            Longitude = qLon + dLon(190),
+            Hint = "Temiz hava ve kısa esneme molası"
+        });
+        waypoints.Add(new RouteWaypoint
+        {
+            Order = 3,
+            Name = "Sosyal Buluşma & Seyir Noktası",
+            Latitude = qLat + dLat(120),
+            Longitude = qLon + dLon(420),
+            Hint = "Fotoğraf veya zaman kapsülü bırakma noktası"
+        });
+        waypoints.Add(new RouteWaypoint
+        {
+            Order = 4,
+            Name = "Dönüş & Bitiş Çemberi",
+            Latitude = qLat - dLat(90),
+            Longitude = qLon + dLon(180),
+            Hint = "Yaklaşık 1.3 km tempolu sosyal yürüyüş bitişi"
+        });
+    }
+
+    var created = repo.CreateRoute(new CreateRouteRequest
+    {
+        Title = "Konumuma Özel Sosyal Keşif Rotası",
+        Description = "Çevrenizdeki park, kültür noktaları ve açık alanlardan otomatik oluşturulan başlangıç yürüyüş rotası. Yalnızlığı ve hareketsizliği kırmak için tasarlandı.",
+        CityDistrict = string.IsNullOrWhiteSpace(cityDistrict) ? "Yakın Çevrem" : cityDistrict.Trim(),
+        Difficulty = "Kolay",
+        SocialTag = "Hareketsizliği Kıran Keşif",
+        IsRawPreset = false,
+        CreatedBy = "Otomatik Rota Motoru",
+        Waypoints = waypoints
+    }, overrideCategory: "Otomatik Çevre Rotası");
+
+    return Results.Ok(created);
+});
+
+app.MapPost("/api/experiments/wellbeing", (WellBeingCheckInRequest req, CapsuleRepository repo) =>
+{
+    repo.RecordWellBeing(req);
+    return Results.Ok(repo.GetSummary());
 });
 
 app.Run();

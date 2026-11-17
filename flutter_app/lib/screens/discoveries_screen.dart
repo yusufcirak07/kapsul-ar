@@ -123,8 +123,102 @@ class _DiscoveriesScreenState extends State<DiscoveriesScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Hedef: $dailyGoalSteps adım • Açılan kapsül: ${loc.unlockedIds.length} nokta',
+                  'Hedef: $dailyGoalSteps adım • Açılan kapsül: ${loc.unlockedIds.length} • Rota: ${loc.completedRouteIds.length}',
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: p.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: p.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.favorite_rounded, color: p.accentSecondary, size: 18),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Yürüyüş Sonrası Moral & Sosyalleşme İsteği',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13.5,
+                          color: p.textPrimary,
+                        ),
+                      ),
+                    ),
+                    if (loc.wellBeingScores.isNotEmpty)
+                      Text(
+                        'Ort: ${loc.averageWellBeing.toStringAsFixed(1)}/5',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                          color: p.accentSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Hareketsizlik ve umutsuzluk hissini azaltmak için yürüyüş sonrası kendinizi nasıl hissettiğinizi puanlayın:',
+                  style: TextStyle(fontSize: 11.5, color: p.textSecondary),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(5, (idx) {
+                    final score = idx + 1;
+                    final labels = ['Yorgun', 'Durgun', 'Normal', 'Enerjik', 'Sosyal'];
+                    return Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(right: idx < 4 ? 6 : 0),
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            side: BorderSide(color: p.border),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () async {
+                            await loc.recordWellBeing(score);
+                            await widget.api.submitWellBeing(
+                              moodScore: score,
+                              socialConnectedness: score,
+                            );
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('İyi oluş kaydınız ($score/5 - ${labels[idx]}) eklendi.'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
+                          child: Column(
+                            children: [
+                              Text(
+                                '$score',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                  color: p.accentPrimary,
+                                ),
+                              ),
+                              Text(
+                                labels[idx],
+                                style: TextStyle(fontSize: 9.5, color: p.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
                 ),
               ],
             ),

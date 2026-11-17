@@ -100,6 +100,7 @@ class _HomeShellState extends State<HomeShell> {
   final LocationSensorService _locationService = LocationSensorService();
   int _tabIndex = 0;
   NearbyMediaItem? _prefilledPlace;
+  bool _createRouteInitialMode = false;
 
   @override
   void initState() {
@@ -205,7 +206,15 @@ class _HomeShellState extends State<HomeShell> {
             ExploreScreen(
               api: _api,
               locationService: _locationService,
-              onGoToCreate: () => setState(() => _tabIndex = 1),
+              themeController: widget.themeController,
+              onGoToCreate: () => setState(() {
+                _createRouteInitialMode = false;
+                _tabIndex = 1;
+              }),
+              onGoToCreateRoute: () => setState(() {
+                _createRouteInitialMode = true;
+                _tabIndex = 1;
+              }),
               onCreateAtPlace: _openCreateWithPlace,
             ),
             CreateCapsuleScreen(
@@ -213,8 +222,15 @@ class _HomeShellState extends State<HomeShell> {
               locationService: _locationService,
               themeController: widget.themeController,
               prefilledPlace: _prefilledPlace,
+              initialRouteMode: _createRouteInitialMode,
               onCreated: () => setState(() {
                 _prefilledPlace = null;
+                _createRouteInitialMode = false;
+                _tabIndex = 0;
+              }),
+              onRouteCreated: (_) => setState(() {
+                _prefilledPlace = null;
+                _createRouteInitialMode = false;
                 _tabIndex = 0;
               }),
             ),
