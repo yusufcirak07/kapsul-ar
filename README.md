@@ -2,7 +2,12 @@
 
 # KapsülAR — Küçük Şehir/İlçe ve Üniversite Odaklı Sosyal Yürüyüş Rotaları ve WebAR Zaman Kapsülü Sistemi
 
-Küçük şehir/ilçelerde yaşayan halk ile üniversite öğrencilerinin hareketsizlik, sosyalleşememe ve *"çevrede gezilecek/yürünecek yer yok"* algısından kaynaklanan umutsuzluk döngüsünü kırmak amacıyla; **hazır ham kültürel rotaları** (Likya Yolu, Frig Vadisi vb.), **sıfırdan oluşturulabilen ve topluluk tarafından puanlanabilen yürüyüş rotalarını**, **otomatik yerel rota üretimini** ve **WebAR tabanlı konum kilitli dijital zaman kapsüllerini** birleştiren **Flutter (PWA + Mobil)** ve **ASP.NET Core (.NET 10) Uzamsal REST API** tabanlı araştırma ve uygulama projesi.
+[![.NET 10](https://img.shields.io/badge/.NET-10.0%20Minimal%20API-512BD4?logo=dotnet)](backend/)
+[![Flutter](https://img.shields.io/badge/Flutter-Material%203%20%7C%20PWA%20%26%20Mobile-02569B?logo=flutter)](flutter_app/)
+[![PostGIS](https://img.shields.io/badge/Database-PostgreSQL%20%2B%20PostGIS-336791?logo=postgresql)](backend/database/schema_postgis.sql)
+[![TÜBİTAK 2209-A](https://img.shields.io/badge/Research-T%C3%9CB%C4%B0TAK%202209--A-C8102E)](#-proje-k%C3%BCnyesi-t%C3%BCbi%CC%87tak-2209-a-format%C4%B1)
+
+Küçük şehir ve ilçelerde yaşayan halk ile üniversite öğrencilerinin fiziksel hareketsizlik, sosyalleşememe ve *"çevrede gezilecek/yürünecek yer yok"* algısından kaynaklanan umutsuzluk döngüsünü azaltmak amacıyla geliştirilen; **ham kültürel/doğa yürüyüş rotalarını** (Likya Yolu, Frig Vadisi, ilçe/kampüs hatları), **sıfırdan oluşturulup topluluk tarafından puanlanabilen rotaları**, **otomatik yerel rota öneri motorunu** ve **4 katmanlı anti-spoofing korumalı WebAR zaman kapsüllerini** bir araya getiren açık kaynaklı araştırma ve uygulama platformudur.
 
 ---
 
@@ -11,132 +16,176 @@ Küçük şehir/ilçelerde yaşayan halk ile üniversite öğrencilerinin hareke
 | Alan | Bilgi |
 | :--- | :--- |
 | **Proje Başlığı** | Küçük Şehir ve Üniversite Yerleşkelerinde Fiziksel Aktivite ile Sosyal Etkileşimi Artırmaya Yönelik Ham/Topluluk Yürüyüş Rotaları ve Hibrit Konum Doğrulamalı WebAR Zaman Kapsülü Sisteminin Geliştirilmesi |
-| **Grup Adı** | SOY Tech |
-| **Proje Yürütücüsü** | Yusuf Çırak *(Tek Yürütücü)* |
-| **Araştırmacılar (Proje Ortakları)** | Semih Beyaztaş, Ozan Hasköy |
+| **Araştırma Grubu** | **SOY Tech** |
+| **Proje Yürütücüsü** | **Yusuf Çırak** *(Tek Yürütücü)* |
+| **Araştırmacılar (Proje Ortakları)** | **Semih Beyaztaş**, **Ozan Hasköy** |
 | **Akademik Danışman** | *[Üniversite / Bölüm Danışmanı Unvan Ad Soyad]* |
 | **Öngörülen Proje Süresi** | 12 Ay |
+| **Çalışma Alanı** | Bilgisayar Mühendisliği, Mekânsal Veritabanları, Mobil İnsan–Bilgisayar Etkileşimi (HCI) ve Konum Güvenliği |
 
 ---
 
 ## 1. Özet ve Anahtar Kelimeler
 
-Özellikle büyükşehir dışındaki küçük şehir ve ilçelerde yaşayan gençler, üniversite öğrencileri ve yerel halk; düzenli sosyal etkinlik ve yapılandırılmış yürüyüş rotası eksikliği nedeniyle yüksek düzeyde fiziksel hareketsizlik ve sosyal izolasyon riski yaşamaktadır. Mevcut harita ve adım sayar uygulamaları yalnızca mesafe ölçmekte; kullanıcıya çevresindeki keşfedilmemiş noktaları sosyal bir yürüyüş deneyimine dönüştüren, topluluk tarafından üretilip puanlanabilen ve konum sahteciliğine (GPS spoofing) karşı güvenli bir mekanizma sunmamaktadır.
+Büyükşehir dışındaki küçük şehir ve ilçelerde yaşayan gençler, üniversite öğrencileri ve yerel halk; yapılandırılmış sosyal yürüyüş rotaları ile keşfedilebilir açık alan etkinliklerinin eksikliği nedeniyle yüksek düzeyde fiziksel hareketsizlik ve sosyal izolasyon riski yaşamaktadır. Standart adım sayar ve harita uygulamaları yalnızca pasif mesafe kaydı tutmakta; kullanıcıyı çevresindeki potansiyel sosyalleşme noktalarına yönlendiren, topluluk tarafından üretilip değerlendirilebilen ve konum sahteciliğine (*GPS spoofing*) karşı dirençli bir etkileşim mimarisi sunmamaktadır.
 
-Bu projede; (1) **Likya Yolu** ve **Frig Vadisi** gibi bilinen parkurların **ham GPS duraklı rotalarını** ve küçük ilçelerdeki kampüs/park hatlarını sunan, (2) kullanıcıların harita üzerinde dokunarak **0'dan yürüyüş rotası** oluşturabildiği veya OpenStreetMap/Wikipedia açık verileriyle bulunduğu noktadan otomatik çevre rotası üretebildiği, (3) rotaların diğer kullanıcılar tarafından **1–5 yıldız** ve **yürüyüş sonrası moral/sosyalleşme puanı** ile değerlendirilebildiği, (4) duraklara **AES-256-GCM** konumsal mühürlü ve **4 katmanlı anti-spoofing** korumalı **WebAR zaman kapsüllerinin** yerleştirilebildiği bir sistem tasarlanmakta ve saha deneyleriyle değerlendirilmektedir.
+Bu projede;
+1. **Likya Yolu** ve **Frig Vadisi** gibi bilinen uzun/kısa mesafe parkurların **ham GPS duraklı rotalarını** ve küçük ilçelerdeki kampüs/park hatlarını sunan,
+2. Kullanıcıların harita üzerinden dokunarak **0'dan yürüyüş rotası** çizebildiği veya OpenStreetMap Overpass + Wikipedia Geosearch açık verileriyle bulunduğu noktadan **otomatik yerel yürüyüş döngüsü** üretebildiği,
+3. Oluşturulan ve ham rotaların diğer kullanıcılar tarafından **1–5 yıldız**, **yorum** ve **yürüyüş sonrası moral/sosyalleşme puanı** ile değerlendirilebildiği,
+4. Rota duraklarına `Geohash` + görsel imza tabanlı **AES-256-GCM** konumsal mühürlü ve **4 katmanlı hibrit anti-spoofing** korumalı **WebAR zaman kapsüllerinin** bırakılabildiği bütünleşik bir yazılım mimarisi geliştirilmekte ve 4 haftalık yarı-deneysel saha çalışmasıyla doğrulanmaktadır.
 
-**Anahtar Kelimeler:** *Konum Tabanlı Artırılmış Gerçeklik (WebAR), Sosyal Yürüyüş Rotaları, Fiziksel Aktivite ve İyi Oluş, Uzamsal İndeksleme (PostGIS GiST/SP-GiST), GPS Anti-Spoofing, Kalman Filtresi.*
+**Anahtar Kelimeler:** *Konum Tabanlı Artırılmış Gerçeklik (WebAR), Sosyal Yürüyüş Rotaları, Fiziksel Aktivite ve İyi Oluş, Uzamsal İndeksleme (PostGIS GiST/SP-GiST), GPS Anti-Spoofing, 2B Kalman Filtresi, AES-256-GCM.*
 
 ---
 
 ## 2. Amaç, Problem Tanımı ve Özgün Değer
 
 ### 2.1. Toplumsal ve Bilimsel Problem
-- **Hareketsizlik ve Sosyal İzolasyon:** Küçük ilçe ve taşra üniversite yerleşkelerinde öğrenciler ile yerel halkın sosyalleşebileceği, yürüyüşe teşvik edecek yönlendirilmiş açık alan deneyimleri sınırlıdır. *"Burada gidilecek yer yok"* algısı ekran süresini artırmakta, fiziksel hareketliliği ve psikolojik iyi oluşu düşürmektedir.
-- **Mevcut Uygulamaların Eksikleri:** Geleneksel fitness/adım sayar uygulamaları mekânsal anlam ve topluluk etkileşimi üretmez; mevcut oyunlaştırılmış konum uygulamaları ise *Mock GPS* yazılımlarıyla kolayca manipüle edilebilmekte ve kırsal/küçük ilçelerde içerik üretimi sunmamaktadır.
-- **Uzamsal Sorgu Performansı:** Çok sayıda konum kapsülü ve rota durağı büyüdükçe 5–15 m yakınlık sorgularının mobil/PWA istemcilerde düşük gecikmeyle (`< 50 ms`) yanıtlanması gerekmektedir.
+- **Küçük Şehir/İlçelerde Hareketsizlik ve Sosyal İzolasyon:** Taşra üniversite yerleşkeleri ve küçük ilçelerde öğrenciler ile yerel halk için düşük maliyetli, erişilebilir ve sürdürülebilir açık alan sosyalleşme mekanizmaları yetersizdir. *"Gezilecek yer yok"* algısı ev/yurt içi ekran süresini artırmakta, fiziksel hareketliliği ve psikolojik iyi oluşu olumsuz etkilemektedir.
+- **Literatür ve Mevcut Sistemlerdeki Boşluk:**
+  - *Oyunlaştırılmış LBAR uygulamaları* (Althoff vd., 2016) büyük kent merkezlerinde yoğun nokta üretirken küçük ilçelerde içerik kıtlığı yaşamaktadır.
+  - *Klasik fitness uygulamaları* topluluk içi rota üretimi, akran puanlaması ve fiziksel varlık doğrulaması içermediğinden *Mock GPS* yazılımlarıyla kolayca suistimal edilebilmektedir.
+  - *Yüksek yoğunluklu konum sorguları*, uygun uzamsal indeksleme olmadan mobil istemcilerde gecikmeye (`O(N)`) yol açmaktadır.
 
-### 2.2. Özgün Değer ve Katkı
-1. **Çift Katmanlı Rota Mimarisi (Ham Rotalar + 0'dan Topluluk Rotaları + Otomatik İlçe Rotası):** Sistem hem Likya Yolu ve Frig Vadisi gibi bilinen **ham rotaları** hem de kullanıcıların haritaya dokunarak **0'dan oluşturduğu** ve diğer kişilerin **yıldız/yorum/moral puanı** verebildiği rotaları destekler. Veri seyrek küçük ilçelerde bile `GET /api/routes/suggest` üzerinden otomatik yürüyüş döngüsü üretilir.
-2. **4 Katmanlı Hibrit Anti-Spoofing + Konuma Bağlı Kriptografik Mühür:** Sunucu tarafı 30 saniyelik telemetri penceresinde; (i) işletim sistemi Mock Location & sinyal sapması analizi, (ii) yaya kinematiği (`8.5 m/s` ve `18.0 m/s` sıçrama sınırları), (iii) 2B Kalman konum yumuşatması ve (iv) ivmeölçer/jiroskop IMU füzyonu uygulayarak sahte GPS saldırılarını engeller; kapsül içeriğini ise `Geohash` + görsel imza tabanlı **AES-256-GCM** ile mühürler.
-3. **Bütünleşik Sosyal Etki ve İyi Oluş Ölçümü:** Uygulama yalnızca adım sayısını değil, her yürüyüş ve rota değerlendirmesi sonrası kullanıcının **sosyalleşme isteği ve moral/iyi oluş puanını (1–5)** da ölçerek hareketsiz ve umutsuz yaşamın azaltılmasına yönelik deneysel veri toplar.
+### 2.2. Projenin Özgün Katkıları
+1. **Üç Katmanlı Sosyal Rota Ekosistemi:** Ham rotalar (`Ham Rota`), kullanıcıların harita üzerinden sıfırdan ürettiği rotalar (`Topluluk Rotası`) ve veri seyrek küçük ilçelerde bile otomatik çevre döngüsü üreten motor (`Otomatik Çevre Rotası`) tek bir harita katmanında birleşir.
+2. **Matematiksel ve Sensör Tabanlı Konum Güvenliği:** Sunucu tarafında çalışan 30 saniyelik kayan telemetri penceresi; işletim sistemi sahtecilik bayraklarını, yaya kinematiğini, 2B Kalman kestirim inovasyonunu ve ivmeölçer/jiroskop IMU dinamik enerjisini birleştirerek konum sahteciliğini engeller.
+3. **Konuma Bağlı Kriptografik Mühürleme (Geo-Encryption):** Kapsül metinleri yalnızca sunucu tarafında saklanmakla kalmaz; anahtar türetimi 7 karakterlik `Geohash` ve görsel yer işareti imzasına bağlanarak **AES-256-GCM** ile şifrelenir (Scott & Denning, 2003; NIST SP 800-38D).
+4. **Çift Boyutlu Etki Ölçümü (Fiziksel + Psikososyal):** Sistem hem adım/mesafe/rota tamamlama verilerini hem de yürüyüş sonrası **1–5 Moral & Sosyalleşme İsteği**, **SUS** ve **TAM** metriklerini uygulama içi araştırma laboratuvarında toplar.
 
 ---
 
 ## 3. Araştırma Soruları ve Sayısal Hipotezler
 
-- **AS1 (Uzamsal Performans):** PostGIS tabanlı uzamsal indeksleme stratejileri (`Geohash`, `SP-GiST`, `GiST`) 10.000 konum noktasında 5 m yarıçaplı yakınlık sorgularında gecikmeyi ve taranan aday sayısını nasıl etkiler?
-  - **H1:** `GiST` ve `Geohash` ön filtreleme yaklaşımları, indekssiz sıralı taramaya kıyasla taranan aday nokta sayısını **≥ %90** azaltacak ve `k6` altında 200 eşzamanlı sanal kullanıcı yükünde **P95 < 50 ms** yanıt süresi sağlayacaktır.
-- **AS2 (Konum Güvenliği):** 4 katmanlı kinematik + 2B Kalman + IMU sensör füzyonu mimarisi sahte GPS saldırılarını ne ölçüde tespit edebilir?
-  - **H2:** Önerilen 4 katmanlı anti-spoofing motoru, sentetik ve gerçek Mock GPS/teleportasyon saldırılarında **≥ %95** engelleme doğruluğu ve normal yürüyüşlerde **≤ %5** yanlış pozitif oranı elde edecektir.
-- **AS3 (Fiziksel Aktivite, Sosyalleşme ve İyi Oluş):** Sosyal yürüyüş rotaları, topluluk puanlaması ve WebAR kapsülleri küçük ilçe/kampüs kullanıcılarının hareketliliğini ve moral düzeyini anlamlı biçimde artırır mı?
-  - **H3:** 4 haftalık saha çalışmasında deney grubunun (KapsülAR) haftalık ortalama adım sayısı ve rota tamamlama sıklığı, standart harita/adım sayar kullanan kontrol grubuna göre **≥ %25** daha yüksek olacak; yürüyüş sonrası iyi oluş/sosyalleşme skorunda istatistiksel olarak anlamlı (**p < 0.05**) artış gözlenecektir.
-- **AS4 (Kullanılabilirlik):** Geliştirilen Flutter PWA/mobil arayüzü hedef kitle tarafından kullanılabilir ve benimsenebilir bulunur mu?
-  - **H4:** Katılımcıların Sistem Kullanılabilirlik Ölçeği (SUS) ortalama puanı **≥ 75 / 100** (Bangor vd., 2008 "İyi/Mükemmel" eşiği) ve Teknoloji Kabul Modeli (TAM) algılanan fayda/kullanım kolaylığı ortalamaları **≥ 4.0 / 5.0** olacaktır.
+| No | Araştırma Sorusu | Test Edilebilir Sayısal Hipotez |
+| :--- | :--- | :--- |
+| **AS1** | PostGIS uzamsal indeksleme yöntemleri (`Geohash`, `SP-GiST`, `GiST`) 10.000 noktalı 5 m yakınlık sorgularında gecikmeyi ve aday tarama maliyetini nasıl değiştirir? | **H1:** `GiST (R-Tree)` ve `Geohash` ön filtreleme, indekssiz sıralı taramaya kıyasla taranan aday nokta sayısını **≥ %90** azaltacak ve `k6` altında **200 eşzamanlı kullanıcı (VU)** yükünde **P95 < 50 ms** yanıt süresi sağlayacaktır. |
+| **AS2** | 4 katmanlı kinematik + 2B Kalman + IMU sensör füzyonu mimarisi sahte GPS saldırılarını ne düzeyde ayırabilir? | **H2:** Hibrit anti-spoofing motoru, sentetik ve Mock GPS sıçrama/durağan-IMU saldırılarında **≥ %95** tespit doğruluğu ve gerçek yaya yürüyüşlerinde **≤ %5** yanlış ret oranı elde edecektir. |
+| **AS3** | Ham/topluluk yürüyüş rotaları, puanlama ve WebAR kapsülleri küçük ilçe ve kampüs kullanıcılarında aktivite ile iyi oluşu artırır mı? | **H3:** 4 haftalık saha çalışmasında deney grubunun haftalık ortalama adım sayısı kontrol grubuna göre **≥ %25** daha yüksek olacak; yürüyüş sonrası iyi oluş/sosyalleşme puanında istatistiksel olarak anlamlı (**p < 0.05**) artış gözlenecektir. |
+| **AS4** | Geliştirilen Flutter PWA/mobil arayüzü hedef kitle tarafından kullanılabilir ve benimsenebilir bulunur mu? | **H4:** Katılımcıların Sistem Kullanılabilirlik Ölçeği (SUS) ortalaması **≥ 75 / 100** ve Teknoloji Kabul Modeli (TAM) algılanan fayda/kolaylık puanları **≥ 4.0 / 5.0** olacaktır. |
 
 ---
 
-## 4. Bilimsel Yöntem, Deney Tasarımı ve İstatistiksel Analiz Planı
+## 4. Bilimsel Yöntem, Matematiksel Model ve İstatistiksel Plan
 
-Araştırma, mevcut çalışan prototipin (**ön çalışma / fizibilite doğrulaması**) üzerine inşa edilen 3 aşamalı deneysel bir yöntem izler:
+### 4.1. Sistem Mimarisi ve Doğrulama Akışı
 
-### 4.1. Aşama 1 — Uzamsal Sorgu ve Yük Testi Deneyleri
-- **Veri ve Ortam:** `backend/database/schema_postgis.sql` ve `SpatialIndexEngine.cs` üzerinde `N = 10.000` sentetik konum noktası, `r = 5.0 m` kilit yarıçapı ve `100` tekrarlı sorgu çalıştırılır.
-- **Karşılaştırılan Yöntemler:** (M0) İndekssiz Sıralı Tarama, (M1) 7-karakter Geohash + 8 komşu B-Tree ön filtresi, (M2) `SP-GiST` (QuadTree bölümleme), (M3) `GiST` (R-Tree/MBR budama).
-- **Yük Testi:** `backend/database/benchmark_k6.js` ile 15 sn 50 VU → 30 sn 200 VU → 15 sn 0 VU kademeli yük profili altında `P95 < 50 ms` eşiği ölçülür.
+```mermaid
+flowchart LR
+    U["Kullanıcı (Flutter PWA / Mobil)"] -->|"GPS + IMU (30 sn Pencere) + WebRTC/ORB"| API["ASP.NET Core (.NET 10) Minimal API"]
+    API -->|"1. Sağlayıcı & Jitter (0.25)"| AS["AntiSpoofingEngine"]
+    API -->|"2. Kinematik Hız/İvme (0.35)"| AS
+    API -->|"3. 2B Kalman Drift (0.20)"| AS
+    API -->|"4. IMU Dinamik RMS (0.20)"| AS
+    AS -->|"TrustScore >= 65.0"| CRYPTO["SpatialCryptoService (AES-256-GCM)"]
+    API -->|"5m / 15m Yakınlık Sorgusu"| SPATIAL["SpatialIndexEngine / PostGIS (GiST, SP-GiST, Geohash)"]
+    API -->|"Açık Veri Rota & Medya"| EXT["Wikimedia Commons + Wikipedia Geosearch + OSM Overpass"]
+```
 
-### 4.2. Aşama 2 — Anti-Spoofing ve Kriptografik Doğrulama Deneyleri
-- **Senaryo Seti:** 30 saniyelik pencere üzerinde (a) normal yaya yürüyüşü (~1.4–1.8 m/s), (b) masa üstü sabit cihaz + sahte GPS enjeksiyonu (IMU durağan, GPS hareketli), (c) ani konum sıçraması (> 18 m/s) ve (d) Android Mock Provider bayraklı örnekler (`N ≥ 120` senaryo oturumu) test edilir; karmaşıklık matrisi (Precision, Recall, F1, FPR) çıkarılır.
+### 4.2. Algoritmik ve Matematiksel Formülasyon
 
-### 4.3. Aşama 3 — Yarı-Deneysel Saha Çalışması (Küçük İlçe & Üniversite Öğrencileri)
-- **Örneklem:** Gönüllülük esasına göre seçilen `n = 40` katılımcı (18–29 yaş üniversite öğrencileri ve küçük ilçe sakinleri) rastgele iki eşdeğer gruba ayrılır:
-  - **Deney Grubu (n = 20):** KapsülAR uygulaması (Ham rotalar + 0'dan rota çizimi + rota puanlama + WebAR zaman kapsülü + iyi oluş geri bildirimi).
-  - **Kontrol Grubu (n = 20):** Yalnızca standart dijital harita/adım sayar takibi (sosyal rota, puanlama ve WebAR kapsülü olmadan).
-- **Ölçüm Araçları:** Uygulama içi `ResearchLabScreen` ve `DiscoveriesScreen` modülleri üzerinden günlük adım sayısı, yürünen km, tamamlanan rota sayısı, 10 maddelik **SUS** anketi, **TAM** maddeleri ve yürüyüş sonrası **1–5 İyi Oluş / Sosyalleşme İsteği** puanları toplanır.
+#### A. 2B Sabit-Hız Kalman Süzgeci ve İnovasyon Sapması
+Kentsel/ilçe GPS çoklu yansıma (5–20 m) gürültüsünü süzmek ve ani sahte konum sıçramalarını ölçmek için yerel teğet düzlemde ($x$: doğu, $y$: kuzey metre cinsinden) durum kestirimi uygulanır:
 
-### 4.4. İstatistiksel Analiz Planı
-- Dağılım normalliği **Shapiro–Wilk** testi ile denetlenir.
-- **Deney vs. Kontrol Grubu Karşılaştırması:** Normal dağılım durumunda **Bağımsız Örneklem t-Testi**, aksi durumda **Mann–Whitney U** testi; grup içi ön-test/son-test değişimi için **Eşli t-Testi / Wilcoxon İşaretli Sıralar Testi** uygulanır. Etki büyüklüğü **Cohen's *d*** (veya *r*) ile raporlanır.
-- **Çoklu Uzamsal İndeks Kıyaslaması (M0–M3):** Tekrarlı sorgu süreleri **Friedman Testi** ve ardından **Holm–Bonferroni** düzeltmeli ikili karşılaştırmalarla analiz edilir (`α = 0.05`).
+$$\hat{x}_{k|k-1} = x_{k-1} + v_{x,k-1}\Delta t, \qquad \hat{y}_{k|k-1} = y_{k-1} + v_{y,k-1}\Delta t$$
+
+$$K_k = \frac{P_{k|k-1}}{P_{k|k-1} + R_k}, \qquad R_k = 0.45 \cdot \mathrm{clamp}(\sigma_{\text{GPS}}, 2.5, 35.0)^2$$
+
+$$e_k = \sqrt{(m_{x,k} - \hat{x}_{k|k-1})^2 + (m_{y,k} - \hat{y}_{k|k-1})^2}$$
+
+Burada $e_k$ (`KalmanInnovationMeters`) ani teleportasyon/sahte konum enjeksiyonlarında eşik değeri ($e_k > 25.0\text{ m}$) aşarak Katman 3 alarmı üretir.
+
+#### B. 4 Katmanlı Hibrit Güven Skoru ($T_{\text{trust}}$)
+Son $30\text{ sn}$ telemetri penceresi üzerinden hesaplanan bileşik güven skoru:
+
+$$T_{\text{trust}} = 0.25\,L_1 + 0.35\,L_2 + 0.20\,L_3 + 0.20\,L_4$$
+
+- **$L_1$ (Sağlayıcı & Sinyal Bütünlüğü):** `IsMocked` bayrağı, $0.0\text{ m}$ sahte doğruluk ve doğruluk standart sapması ($\sigma_{\text{acc}} < 0.001$) kontrolü.
+- **$L_2$ (Kinematik Fizik):** Haversine mesafesinden türetilen hız ($v_{\max} \le 8.5\text{ m/s}$ yaya sınırı, $v > 18.0\text{ m/s}$ imkansız sıçrama) ve ivme ($a_{\max} \le 12.0\text{ m/s}^2$).
+- **$L_3$ (Kalman Drift Filtresi):** İnovasyon sapması $e_k \le 12.0\text{ m}$ için tam puan, $e_k > 25.0\text{ m}$ için ret.
+- **$L_4$ (IMU Sensör Füzyonu):** Yerçekimi ortalamasından arındırılmış ivmeölçer dinamik RMS enerjisi ($\text{RMS}_{\text{dyn}} < 0.045\text{ m/s}^2$ iken $> 10\text{ m}$ GPS hareketi varsa sahte hareket tespiti).
+
+#### C. Konuma Bağlı Anahtar Türetimi (`AES-256-GCM`)
+$$K_{\text{spatial}} = \mathrm{HMAC\text{-}SHA256}\big(K_{\text{master}}, \; \text{capsuleId} \parallel \mathrm{Geohash}_7(\phi,\lambda) \parallel \text{visualSig}\big)$$
+
+Şifreleme 12 baytlık rastgele `nonce`, 16 baytlık bütünlük etiketi (`tag`) ve `AAD` ile doğrulanır.
+
+#### D. Rota Kinematik Tahmini ve SUS Puanlaması
+- Rota süresi ve adım tahmini ortalama $4.2\text{ km/sa}$ yürüyüş hızı ve $0.72\text{ m}$ adım uzunluğu üzerinden hesaplanır: $\text{Adım} = \text{round}(D_{\text{metre}} / 0.72)$.
+- 10 maddelik SUS puanı (Brooke, 1996):
+
+$$\text{SUS} = 2.5 \times \left( \sum_{i \in \{1,3,5,7,9\}} (a_i - 1) + \sum_{i \in \{2,4,6,8,10\}} (5 - a_i) \right)$$
+
+### 4.3. Deneysel Tasarım ve İstatistiksel Analiz Planı
+
+1. **Aşama 1 — Uzamsal İndeksleme & Yük Deneyi:** `SpatialIndexEngine.cs` ve `schema_postgis.sql` üzerinde `N = 10.000` sentetik nokta, `r = 5.0 m` yarıçap ve `100` sorgu yinelemesiyle `(M0)` İndekssiz, `(M1)` Geohash, `(M2)` SP-GiST (QuadTree) ve `(M3)` GiST (R-Tree/MBR) karşılaştırılır; `k6` (`benchmark_k6.js`) ile `200 VU` yükünde `P95 < 50 ms` doğrulanır.
+2. **Aşama 2 — Anti-Spoofing Doğruluk Deneyi:** Normal yürüyüş, sabit cihazda sahte GPS ve ani sıçrama sınıflarından oluşan **120 senaryo oturumu** üzerinde Precision, Recall, F1 ve yanlış pozitif oranı (FPR) raporlanır.
+3. **Aşama 3 — Yarı-Deneysel Saha Çalışması (`n = 40`):** Küçük ilçe sakinleri ve üniversite öğrencilerinden oluşan **40 katılımcı** (büyük etki büyüklüğü $d \ge 0.80$, $\alpha = 0.05$, güç $1-\beta \approx 0.80$ varsayımıyla grup başına 20 kişi; olası %20 kayba karşı 48 yedek kayıt):
+   - **Deney Grubu (`n = 20`):** KapsülAR (Ham rotalar + 0'dan rota oluşturma + topluluk puanlama + WebAR kapsülleri).
+   - **Kontrol Grubu (`n = 20`):** Sosyal rota/puanlama ve WebAR olmadan standart harita ve adım takibi (4 hafta).
+4. **İstatistiksel Yöntemler:** Normallik için **Shapiro–Wilk**; gruplar arası karşılaştırmada **Bağımsız Örneklem t-Testi / Mann–Whitney U**; grup içi ön-test/son-test için **Eşli t-Testi / Wilcoxon İşaretli Sıralar Testi**; M0–M3 indeks karşılaştırmasında **Friedman Testi + Holm–Bonferroni** düzeltmesi ve etki büyüklüğü için **Cohen's *d* / *r*** kullanılır ($\alpha = 0.05$).
 
 ---
 
 ## 5. Proje Yönetimi (TÜBİTAK 2209-A Prosedürleri)
 
 ### 5.1. Ekip Görev Dağılımı
-| Rol | Üye | Sorumluluk Alanları |
+| Rol | Üye | Sorumluluklar |
 | :--- | :--- | :--- |
-| **Proje Yürütücüsü** | **Yusuf Çırak** | Sistem mimarisi koordinasyonu, ASP.NET Core & PostGIS uzamsal servisler, anti-spoofing/kripto çekirdeği, istatistiksel analiz ve TÜBİTAK raporlama |
-| **Araştırmacı (Proje Ortağı)** | **Semih Beyaztaş** | Flutter mobil/PWA arayüzü, OpenStreetMap rota çizim & harita katmanları, SUS/TAM & iyi oluş saha veri toplama |
-| **Araştırmacı (Proje Ortağı)** | **Ozan Hasköy** | Ham rota (Likya, Frig, ilçe hatları) veri derleme, WebAR kamera/görsel çapa testleri, `k6` yük testi ve saha pilot organizasyonu |
-| **Akademik Danışman** | *[Unvan Ad Soyad]* | Bilimsel yöntem denetimi, etik kurul başvuru rehberliği, akademik yayın/bildiri danışmanlığı |
+| **Proje Yürütücüsü** | **Yusuf Çırak** | Genel koordinasyon, ASP.NET Core & PostGIS uzamsal servisler, anti-spoofing/kripto modülü, istatistiksel analiz ve TÜBİTAK raporlama |
+| **Araştırmacı (Proje Ortağı)** | **Semih Beyaztaş** | Flutter mobil/PWA arayüzü, 0'dan rota çizim bileşeni, harita katmanları, SUS/TAM ve iyi oluş saha veri toplama |
+| **Araştırmacı (Proje Ortağı)** | **Ozan Hasköy** | Ham rota GPS veri doğrulama (Likya/Frig/ilçe hatları), WebAR görsel doğrulama testleri, `k6` yük testi ve saha pilot organizasyonu |
+| **Akademik Danışman** | *[Unvan Ad Soyad]* | Bilimsel yöntem denetimi, Etik Kurul başvuru rehberliği ve akademik bildiri yayını |
 
 ### 5.2. İş Paketleri (İP), İş-Zaman Çizelgesi (12 Ay) ve Başarı Ölçütleri
 
-| İş Paketi | Açıklama | Dönem (Ay) | Sorumlu | Başarı Ölçütü |
-| :--- | :--- | :---: | :--- | :--- |
-| **İP1: Literatür, Etik & Ham Rota Derleme** | Literatür taraması, Etik Kurul başvurusu, Likya/Frig/ilçe ham GPS rotalarının doğrulanması | 1 – 2 | Yusuf Çırak, Ozan Hasköy | Etik Kurul onayı; ≥ 4 doğrulanmış ham rota ve ≥ 15 kaynaklı tarama (%100) |
-| **İP2: Uzamsal Altyapı & Anti-Spoofing Optimizasyonu** | PostgreSQL+PostGIS (`GiST`, `SP-GiST`, `Geohash`) kurulumu, 4 katmanlı anti-spoofing + AES-256-GCM testleri | 3 – 4 | Yusuf Çırak | `10.000` noktada benchmark ve `k6` `P95 < 50 ms`; spoof engelleme `≥ %95` |
-| **İP3: İstemci Revizyonu (Rota Oluşturma, Puanlama & İyi Oluş)** | 0'dan rota çizici, otomatik çevre rota önerici, yıldız/yorum/moral puanlama ve WebAR akışı | 5 – 7 | Semih Beyaztaş | Tüm Android/Web/PWA cihazlarda hatasız çalışma; birim testleri %100 geçer |
-| **İP4: Yarı-Deneysel Saha Çalışması (n = 40)** | Küçük ilçe/üniversite katılımcılarıyla 4 haftalık Kontrol vs. Deney grubu yürüyüş deneyi | 8 – 10 | Semih Beyaztaş, Ozan Hasköy | `n ≥ 40` katılımcıdan tam veri toplanması (`≥ %90` devam oranı) |
-| **İP5: İstatistiksel Analiz ve Değerlendirme** | Adım, rota tamamlama, iyi oluş, SUS (`≥ 75`), TAM ve anti-spoofing metriklerinin analizi | 10 – 11 | Yusuf Çırak | Tüm hipotezlerin (H1–H4) `p < 0.05` düzeyinde test edilip raporlanması |
-| **İP6: Sonuç Raporu, Bildiri ve Açık Kaynak Yayın** | TÜBİTAK sonuç raporu, ulusal/uluslararası bildiri taslağı, GitHub açık kaynak sürümü | 11 – 12 | Tüm Ekip | TÜBİTAK final raporunun teslimi ve 1 akademik bildiri başvurusu (%100) |
+| İP No | İş Paketi Adı | Süre (Ay) | Sorumlu | Başarı Ölçütü (%) |
+| :---: | :--- | :---: | :--- | :--- |
+| **İP1** | Literatür Taraması, Etik Kurul Başvurusu ve Ham Rota Derleme | 1 – 2 | Yusuf Çırak, Ozan Hasköy | Etik Kurul onayı alınması; ≥ 4 ham rota GPS doğrulaması (%100) |
+| **İP2** | PostGIS Uzamsal İndeksleme & Anti-Spoofing Optimizasyonu | 3 – 4 | Yusuf Çırak | `10.000` noktada `P95 < 50 ms`; spoof engelleme `≥ %95` (%100) |
+| **İP3** | İstemci Geliştirme (0'dan Rota, Puanlama, Otomatik Öneri & WebAR) | 5 – 7 | Semih Beyaztaş | Birim/entegrasyon testlerinin hatasız geçmesi; Android/Web çalışırlık (%100) |
+| **İP4** | Yarı-Deneysel Saha Çalışması (Küçük İlçe & Kampüs, `n = 40`) | 8 – 10 | Semih Beyaztaş, Ozan Hasköy | 4 haftalık takipte `n ≥ 40` katılımcıdan `≥ %90` tam veri toplanması |
+| **İP5** | İstatistiksel Veri Analizi ve Hipotez Doğrulama (`H1–H4`) | 10 – 11 | Yusuf Çırak | Shapiro–Wilk, Mann–Whitney/t-testi, Friedman analizlerinin tamamlanması (%100) |
+| **İP6** | TÜBİTAK Sonuç Raporu, Bildiri ve Açık Kaynak Yayın | 11 – 12 | Tüm Ekip | TÜBİTAK final raporu teslimi ve ≥ 1 konferans bildirisi başvurusu (%100) |
 
 ### 5.3. Risk Yönetimi ve B Planları
 
-| Olası Risk | Etki | Olasılık | Önlem ve B Planı |
+| Risk Tanımı | Etki | Olasılık | Önlem ve B Planı |
 | :--- | :---: | :---: | :--- |
-| **Saha çalışmasında katılımcı kaybı (n < 40)** | Yüksek | Orta | Başlangıçta %20 yedek (`48` kişi) kaydı alınır; üniversite yürüyüş/gezi kulüpleriyle eşgüdüm sağlanır. |
-| **Kırsal/ilçe alanlarında mobil internet veya Overpass API kesintisi** | Orta | Orta | İstemcide `SharedPreferences` yerel önbelleği, hazır ham rotalar ve çevrimdışı döngü rota üretici devreye girer (B planı kodda mevcuttur). |
-| **Kapalı alan veya düşük ışıkta WebAR görsel eşleşme düşüşü** | Orta | Düşük | 2B düzlem/ORB doğrulaması yetersiz kaldığında 30 sn Kalman + IMU penceresi ve pusula yönü sektör doğrulaması yedek katman olarak kullanılır. |
-| **Dış mekan GPS çoklu yansıma (multipath) sapması** | Orta | Orta | 2B Kalman drift filtresi ve `5–15 m` yapılandırılabilir kilit yarıçapı ile hatalı reddetmeler önlenir. |
+| **Saha çalışmasında katılımcı ayrılması (`n < 40`)** | Yüksek | Orta | %20 yedek (`48` katılımcı) ile başlanır; öğrenci kulüpleri ve ilçe topluluklarıyla düzenli yürüyüş günleri planlanır. |
+| **Kırsal/ilçede internet veya Overpass API kesintisi** | Orta | Orta | İstemcide `SharedPreferences` yerel önbelleği, gömülü ham rotalar ve çevrimdışı döngü rota üreticisi devreye girer. |
+| **Düşük ışıkta WebAR görsel eşleşme kaybı** | Orta | Düşük | Görsel çapa skoru düştüğünde 30 sn Kalman + IMU penceresi ve pusula 30° sektör doğrulaması birincil güvenlik katmanı olarak sürdürülür. |
+| **Kentsel/vadi GPS multipath sapması** | Orta | Orta | 2B Kalman süzgeci ve `5–15 m` yapılandırılabilir kilit yarıçapı ile hatalı kilit retleri önlenir. |
 
 ### 5.4. Bütçe Planlaması (TÜBİTAK 2209-A Üst Sınırı: 12.000 TL)
 
-| Kalem | Birim / Adet | Tutar (TL) | Teknik ve Bilimsel Gerekçe |
+| Bütçe Kalemi | Miktar | Tutar (TL) | Teknik / Bilimsel Gerekçe |
 | :--- | :---: | :---: | :--- |
-| **Bulut Test Sunucusu (VPS + PostgreSQL/PostGIS + SSL/Alan Adı, 12 Ay)** | 1 Paket | 4.800 TL | Saha çalışmasında (n=40) gerçek PostGIS uzamsal sorgularının, telemetri kayıtlarının ve k6 yük testlerinin kesintisiz yürütülmesi için |
-| **Saha Testi QR / Referans Tabela ve Basılı Bilgilendirme Materyali** | 40 Set | 1.900 TL | Pilot ilçe ve kampüs rota duraklarında görsel çapa testleri, katılımcı onam formları ve yönlendirme etiketleri için |
-| **Taşınabilir Güç Kaynağı (Powerbank) ve Saha Test Telefon Tutucu** | 3 Adet | 2.700 TL | 4 haftalık açık alan GPS/IMU/WebAR ölçümlerinde cihaz pil kesintisini önlemek ve sabit kamera açısıyla ölçüm almak için |
-| **Akademik Bildiri Katılım / Kırtasiye ve Sarf Giderleri** | 1 Kalem | 2.000 TL | İP6 kapsamında elde edilen deney sonuçlarının ulusal öğrenci/mühendislik kongresinde sunulması ve basılı anket yedekleri için |
-| **GENEL TOPLAM** | — | **11.400 TL** | *TÜBİTAK 2209-A 12.000 TL üst sınırı ile uyumludur.* |
+| **Bulut Test Sunucusu (VPS + PostgreSQL/PostGIS + Alan Adı/SSL, 12 Ay)** | 1 Paket | 4.800 TL | Saha deneyi (`n = 40`) boyunca PostGIS uzamsal sorgularının, telemetri doğrulamalarının ve `k6` yük testlerinin yürütülmesi |
+| **Saha Testi QR/Referans Tabela ve Basılı Bilgilendirme Materyali** | 40 Set | 1.900 TL | Pilot ilçe ve kampüs rota duraklarında görsel çapa testleri, gönüllü onam formları ve yönlendirme etiketleri |
+| **Taşınabilir Güç Kaynağı (Powerbank) ve Saha Test Telefon Tutucu** | 3 Adet | 2.700 TL | 4 haftalık açık alan GPS/IMU/WebAR ölçümlerinde cihaz pil kesintisini önleme ve sabit kamera açısı sağlama |
+| **Akademik Bildiri Katılım / Kırtasiye ve Sarf Giderleri** | 1 Kalem | 2.000 TL | İP6 kapsamında ulusal mühendislik/öğrenci kongresinde sonuçların sunulması ve anket çıktıları |
+| **TOPLAM** | — | **11.400 TL** | *TÜBİTAK 2209-A 12.000 TL bütçe üst sınırına uygundur.* |
 
-### 5.5. Etik Kurul, KVKK ve Üretken Yapay Zekâ (ÜYZ) Beyanı
-- **Etik Kurul ve Gönüllü Onam:** Saha çalışması öncesinde üniversitenin Sosyal/Beşeri Bilimler veya Mühendislik Etik Kurulu'ndan izin alınır; tüm katılımcılardan aydınlatılmış onam formu toplanır.
-- **KVKK ve Veri Gizliliği:** Konum telemetrisi yalnızca son 30 saniyelik doğrulama penceresinde işlenir; kalıcı veritabanında ham kişisel kimlik yerine anonimleştirilmiş `userId` (`demo-user` / kodlanmış ID) tutulur. Açık lisanslı görseller için yalnızca Wikimedia Commons / Wikipedia / OpenStreetMap verileri kullanılarak telif ihlali önlenir.
-- **ÜYZ Kullanım Beyanı:** Projenin mimari tasarımında, kod incelemesinde ve belge düzenlemesinde üretken yapay zekâ araçlarından yardımcı araç olarak yararlanılmış; tüm algoritmalar, deneysel eşikler, kaynakça DOI doğrulamaları ve saha planlaması proje ekibi tarafından kontrol edilip doğrulanmıştır.
+### 5.5. Etik Kurul, KVKK, Açık Lisans ve ÜYZ Beyanı
+- **Etik Kurul & KVKK:** Saha çalışması öncesi üniversite Etik Kurulu onayı alınır; tüm katılımcılardan bilgilendirilmiş gönüllü onam formu toplanır. Konum telemetrisi yalnızca 30 saniyelik geçici doğrulama penceresinde işlenir; kalıcı kayıtlarda gerçek kimlik yerine anonim `userId` tutulur.
+- **Telif & Açık Lisans:** Tüm mekân görselleri ve POI verileri açık lisanslı Wikimedia Commons, Wikipedia Geosearch ve OpenStreetMap Overpass API kaynaklarından çekilir.
+- **Üretken Yapay Zekâ (ÜYZ) Beyanı:** Mimari inceleme ve dokümantasyon düzenlemelerinde üretken yapay zekâ araçlarından destek alınmış; tüm kod, algoritma parametreleri, kaynakça DOI'leri ve deney planı proje ekibi tarafından doğrulanmıştır.
 
 ---
 
 ## 6. Yaygın Etki
 
-- **Toplumsal Etki:** Küçük ilçe ve taşra üniversitelerindeki hareketsiz gençlerin ve halkın, "gezilecek yer yok" önyargısını kırarak sıfırdan yürüyüş rotaları oluşturması, birbirlerinin rotalarını puanlaması ve güvenli açık alan sosyalleşmesine katılması hedeflenmektedir.
-- **Akademik ve Teknolojik Çıktı:** Elde edilecek uzamsal indeksleme kıyaslama verileri (`GiST` vs `SP-GiST` vs `Geohash`), 4 katmanlı anti-spoofing başarı metrikleri ve saha aktivite/iyi oluş bulguları en az 1 ulusal/uluslararası konferans bildirisine dönüştürülecektir.
-- **Açık Kaynak ve Sürdürülebilirlik:** Projenin kaynak kodu, PostGIS şeması, `k6` benchmark betikleri ve anonimleştirilmiş rota/performans veri seti GitHub üzerinden açık kaynak olarak paylaşılacaktır.
+- **Toplumsal ve Sağlık Etkisi:** Küçük ilçe ve taşra üniversitelerindeki gençlerin *"gezilecek yer yok"* algısını kırarak açık havada yürümesini, kendi rotalarını üretip puanlamasını ve akranlarıyla sosyalleşmesini destekler.
+- **Bilimsel Çıktı:** Uzamsal indeksleme kıyaslaması (`GiST` vs `SP-GiST` vs `Geohash`), 4 katmanlı anti-spoofing doğruluk analizi ve saha aktivite/iyi oluş verileri ulusal/uluslararası bir konferans bildirisine dönüştürülür.
+- **Açık Kaynak Katkısı:** Kod tabanı, PostGIS şeması, `k6` yük senaryoları ve anonimleştirilmiş performans/rota veri seti GitHub üzerinden açık erişime sunulur.
 
 ---
 
-## 7. Mimari Bileşenler ve Uygulama Özellikleri
+## 7. Teknik Mimari, API Uçları ve Uygulama Ekranları
+
+### 7.1. Mimari Bileşenler
 
 | Katman | Teknoloji | Konum |
 |---|---|---|
@@ -145,40 +194,46 @@ Araştırma, mevcut çalışan prototipin (**ön çalışma / fizibilite doğrul
 | **Veritabanı Şeması & Yük Testi** | PostgreSQL + PostGIS (`GiST`, `SP-GiST`, `Geohash`) & `k6` | `backend/database/` |
 | **Görsel & Mekânsal Açık Veri** | Wikimedia Commons, Wikipedia Geosearch & OpenStreetMap Overpass API | `WikimediaMediaService.cs` |
 
-### 7.1. Sade ve Anlaşılır 4 Sekmeli Arayüz (WIP User Interface)
+### 7.2. REST API Uç Noktaları (`backend/Program.cs`)
 
-- **Keşfet (Harita + Yürüyüş Rotaları + Kapsüller):**
-  - OpenStreetMap haritası üzerinde 15 m WebAR tetikleme / 5 m kilit halkaları, pusula yönelim göstergesi, Wikimedia görselli kapsül kartları ve **Yürüyüş Simülatörü (1.5 m/s)**.
-  - **Ham Rotalar & Topluluk Rotaları:** Likya Yolu, Frig Vadisi, Oltu İlçe Öğrenci Hattı ve Beyazıt rotaları haritada `Polyline` + numaralı duraklarla çizilir; **`Rota Öner`** ile bulunulan konumdan otomatik rota üretilir, **`0'dan Çiz`** ile yeni rota başlatılır.
-  - **Rota Detayı ve Puanlama:** Her rota için `1–5 yıldız` puan, yorum, `1–5` yürüyüş sonrası moral/sosyalleşme puanı ve `Rotayı Tamamla` akışı sunulur.
+| Metot & Yol | İşlev |
+| :--- | :--- |
+| `GET /api/capsules` | Kullanıcının koordinatına göre yakın kapsülleri mesafe ve WebAR menzil bilgisiyle listeler |
+| `POST /api/capsules` | Yeni kapsül oluşturur ve içeriği `Geohash` + görsel imzaya bağlı `AES-256-GCM` ile mühürler |
+| `POST /api/capsules/unlock` | 30 sn telemetri penceresi + 4 katmanlı anti-spoofing + görsel eşleşme sonrası şifreyi çözer |
+| `POST /api/antispoof/evaluate` | Gönderilen telemetri penceresini 4 katmanda test edip `TrustScore` raporu döner |
+| `GET /api/spatial/benchmark` | `10.000` sentetik nokta üzerinde İndekssiz / Geohash / SP-GiST / GiST benchmark çalıştırır |
+| `GET /api/routes` | Ham rotaları (Likya, Frig, Oltu vb.) ve kullanıcı tarafından 0'dan çizilen rotaları getirir |
+| `GET /api/routes/suggest` | Bulunulan konumdan OSM/Wikipedia POI'leri veya yerel yürüyüş çemberiyle otomatik rota üretir |
+| `POST /api/routes` | Haritadan seçilen duraklarla 0'dan yeni yürüyüş rotası kaydeder |
+| `POST /api/routes/{id}/rate` | Diğer kullanıcıların 1–5 yıldız, yorum ve moral/sosyalleşme puanı eklemesini sağlar |
+| `POST /api/routes/{id}/complete` | Rota tamamlama, adım/mesafe ve iyi oluş kaydını işler |
+| `POST /api/experiments/sus-tam` & `wellbeing` | SUS, TAM ve yürüyüş sonrası iyi oluş/sosyalleşme araştırma verilerini toplar |
+
+### 7.3. Sade ve Anlaşılır 4 Sekmeli Arayüz (WIP User Interface)
+
+- **Keşfet (Harita + Yürüyüş Rotaları + Kapsüller):** OpenStreetMap haritası, 15 m WebAR tetikleme / 5 m kilit halkaları, pusula yönelim konisi, `Polyline` rota çizimi, **`Rota Öner`**, **`0'dan Çiz`**, rota puanlama/yorum penceresi ve **Yürüyüş Simülatörü (1.5 m/s)**.
 
 | Keşfet (Açık Tema) | Keşfet (Karanlık Tema) |
 | :---: | :---: |
 | <img src="docs/screenshots/explore_light.jpg" width="240" alt="Keşfet Sekmesi - Açık Tema" /> | <img src="docs/screenshots/explore_dark.jpg" width="240" alt="Keşfet Sekmesi - Karanlık Tema" /> |
 
-- **Bırak / Oluştur (Zaman Kapsülü & 0'dan Rota Oluşturucu):**
-  - **Zaman Kapsülü:** Bulunulan GPS koordinatına Metin/Şifreli Not, Fotoğraf, **16×16 Piksel Sanat Tuvali**, Sesli Anı oluşturma ve Wikimedia Commons görseli ekleme.
-  - **0'dan Rota Oluştur:** Haritaya dokunarak veya yakındaki açık alanları ekleyerek durak durak rota çizme, zorluk ve sosyal buluşma etiketi belirleme.
+- **Bırak / Oluştur (Zaman Kapsülü & 0'dan Rota Oluşturucu):** Bulunulan GPS koordinatına Metin/Şifreli Not, Fotoğraf, **16×16 Piksel Sanat Tuvali**, Sesli Anı bırakma veya haritaya dokunarak **0'dan yürüyüş rotası** oluşturma.
 
 | Zaman Kapsülü Bırak |
 | :---: |
 | <img src="docs/screenshots/create_capsule.jpg" width="240" alt="Bırak Sekmesi - Zaman Kapsülü Oluşturma" /> |
 
-- **Aktivite & Profil (İyi Oluş Ölçümü & Araştırma Laboratuvarı):**
-  - **Aktivite:** Günlük adım sayısı, yürünen mesafe (km), tamamlanan rota sayısı, açılan kapsüller ve **Yürüyüş Sonrası Moral & Sosyalleşme İsteği (1–5)** check-in modülü.
-  - **Profil & Araçlar:** Karanlık Tema anahtarı, Gerçek GPS Modu, kilit yarıçapı (5 m / 10 m / 15 m) ve **Araştırma Laboratuvarı**:
-    - **10.000 Noktalı Canlı Uzamsal İndeks Kıyaslaması:** İndekssiz tarama vs `Geohash` vs `SP-GiST (QuadTree)` vs `GiST (R-Tree/MBR)`.
-    - **30 Saniyelik Hibrit Anti-Spoofing Testi:** Normal yürüyüş vs imkansız GPS sıçraması + sensör füzyonu tutarlılığı.
-    - **SUS & TAM Değerlendirme Formu:** Anlık SUS puanı hesaplama (hedef ≥ 75).
+- **Aktivite & Profil (İyi Oluş Ölçümü & Araştırma Laboratuvarı):** Günlük adım/rota/iyi oluş takibi (1–5 moral & sosyalleşme check-in), **10.000 Noktalı Uzamsal İndeks Kıyaslaması**, **30 Saniyelik Hibrit Anti-Spoofing Testi** ve **SUS & TAM Değerlendirme Formu**.
 
 | Aktivite Sekmesi | Profil & Araştırma Laboratuvarı |
 | :---: | :---: |
 | <img src="docs/screenshots/activity.jpg" width="240" alt="Aktivite Sekmesi" /> | <img src="docs/screenshots/profile.jpg" width="240" alt="Profil ve Ayarlar Sekmesi" /> |
 
-### 7.2. WebAR / AR Anti-Spoof Kilit Açma Akışı (Anı Hapı)
+### 7.4. WebAR / AR Anti-Spoof Kilit Açma Akışı (Anı Hapı)
 
 - Kapsüle 15 m yaklaşıldığında harita radarı üzerinden WebRTC kamera (`navigator.mediaDevices.getUserMedia`), IMU ve görsel çapa doğrulaması tetiklenir.
-- **ORB inlier eşleşmesi**, **VIO yer değiştirme (`VIO Δ`)** ve **2B düzlem oranı (anti-spoofing)** kontrolleri geçildiğinde; sunucu tarafı son 30 saniyelik 4 katmanlı doğrulama penceresini onaylar ve AES-256-GCM mühürlü kapsülü çözer.
+- **ORB inlier eşleşmesi**, **VIO yer değiştirme (`VIO Δ`)** ve **2B düzlem oranı (anti-spoofing)** kontrolleri geçildiğinde; sunucu tarafı son 30 saniyelik 4 katmanlı doğrulamayı onaylar ve `AES-256-GCM` mühürlü kapsülü çözer.
 
 | 1. Harita Radarı & Menzil | 2. Görsel Çapa & Anti-Spoof Reddi | 3. Doğrulama & Şifre Çözme |
 | :---: | :---: | :---: |
@@ -186,7 +241,7 @@ Araştırma, mevcut çalışan prototipin (**ön çalışma / fizibilite doğrul
 
 ---
 
-## 8. Çalıştırma Talimatları
+## 8. Çalıştırma ve Test Talimatları
 
 ### A. Backend API (.NET 10)
 ```powershell
@@ -199,6 +254,7 @@ Sunucu varsayılan olarak `http://localhost:5088` adresinde çalışır.
 ```powershell
 cd flutter_app
 flutter pub get
+flutter test
 flutter run -d chrome
 ```
 > **Not:** Android emülatöründe `ApiClient` otomatik olarak `http://10.0.2.2:5088` adresini kullanır; gerekirse **Lab** sekmesinden API adresi değiştirilebilir.
