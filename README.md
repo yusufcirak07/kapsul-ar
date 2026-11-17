@@ -19,8 +19,8 @@ Konum tabanlı mobil ve web artırılmış gerçeklik (WebAR) uygulamalarındaki
 | **Araştırma Grubu** | **SOY Tech**[cite: 1] |
 | **Proje Yürütücüsü** | **Semih Beyaztaş** [cite: 1] |
 | **Araştırmacılar** | **Ozan Hasköy**, **Yusuf Çırak**[cite: 1] |
-| **Proje Danışmanı** | *[Danışman Unvanı Adı Soyadı - Üniversite / Bölüm]*[cite: 1] |
-| **Yürütüleceği Kurum** | *[Üniversite / Fakülte / Bölüm Adı]*[cite: 1] |
+| **Proje Danışmanı** | *[Doç.Dr. Hamza POLAT - Atatürk Üniversitesi / Uygulamalı Bilimler Fakültesi]*[cite: 1] |
+| **Yürütüleceği Kurum** | *[Atatürk Üniversitesi / Uygulamalı Bilimler Fakültesi / Bilişim Sistemleri ve Teknolojileri]*[cite: 1] |
 | **Öngörülen Proje Süresi** | 12 Ay[cite: 1] |
 | **Talep Edilen Bütçe** | 8.000,00 TL [cite: 1] |
 
