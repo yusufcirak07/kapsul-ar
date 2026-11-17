@@ -20,7 +20,7 @@ Konum tabanlı mobil ve web artırılmış gerçeklik (WebAR) uygulamalarındaki
 | **Proje Yürütücüsü** | **Semih Beyaztaş** |
 | **Araştırmacılar** | **Ozan Hasköy**, **Yusuf Çırak** |
 | **Proje Danışmanı** | *[Danışman Unvanı Adı Soyadı - Üniversite / Bölüm]* |
-| **Yürütüleceği Kurum** | *[Üniversite / Fakülte / Bölüm Adı]* |
+| **Yürütüleceği Kurum** | *[Atatürk Üniversitesi / Uygulamalı Bilimler Fakültesi / Bilişim Sistemleri ve Teknolojileri]* |
 | **Öngörülen Proje Süresi** | 12 Ay |
 | **Talep Edilen Bütçe** | 8.000,00 TL |
 
